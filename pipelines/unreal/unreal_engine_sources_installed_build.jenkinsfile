@@ -1,0 +1,89 @@
+def ColorFromBuildResult(result){
+    if("${result}" == 'SUCCESS') return '#18A558'
+    if("${result}" == 'ABORTED') return '#6e6e6e'
+    if("${result}" == 'UNSTABLE') return '#fcba03'
+    return '#FF0000'
+}
+
+pipeline {
+    agent {
+        node {
+            label ""
+            customWorkspace "$BUILD_DIR"
+        }
+    }
+
+    /* environment {
+        GIT_URL_GAME = 'git@github.com:EpicGames/UnrealEngine.git'
+        GIT_CREDENTIALS_GAME = 'life-exe-ssh'
+        GIT_BRANCH_GAME = 'release'
+        GIT_CLONE_TIMEOUT_SEC = 180
+        SLACK_CHANNEL = 'unreal-engine-sources'
+        SETUP_FLAGS = '--force'
+        PROJECT_FILE_FLAGS = '-2022'
+        UE_BUILD_PLATFORM = 'Win64'
+        UE_BUILD_CONFIGURATION = "Shipping;Development"
+    }*/
+
+    stages {
+        stage('Git clone') {
+            steps {
+                slackSend channel: "$SLACK_CHANNEL",
+                    color: "$currentBuild.previousBuild" == 'null' ? '#18A558' :
+                    ColorFromBuildResult("$currentBuild.previousBuild.result"),
+                    message:"Build started: ${env.JOB_NAME} #${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open>)"
+
+                    checkout([$class: 'GitSCM', branches: [[name: "$GIT_BRANCH_GAME"]],
+                        extensions: [
+                            [$class: 'CleanBeforeCheckout'],
+                            [$class: 'CloneOption', timeout: "$GIT_CLONE_TIMEOUT_SEC"]
+                        ],
+                        userRemoteConfigs: [
+                            [credentialsId: "$GIT_CREDENTIALS_GAME", url: "$GIT_URL_GAME"]
+                        ]
+                    ])
+            }
+        }
+
+        stage('Setup') {
+            steps {
+                bat '''
+                    "%BUILD_DIR%\\Setup.bat" %SETUP_FLAGS%
+                '''
+            }
+        }
+
+        stage('Generate project files') {
+            steps {
+                bat '''
+                    "%BUILD_DIR%\\GenerateProjectFiles.bat" %PROJECT_FILE_FLAGS%
+                '''
+            }
+        }
+
+        stage('Build') {
+            steps {
+                bat '''
+                    "%BUILD_DIR%\\Engine\\Build\\BatchFiles\\RunUAT.bat" BuildGraph ^
+                    -target="Make Installed Build %UE_BUILD_PLATFORM%" ^
+                    -script="%BUILD_DIR%\\Engine\\Build\\InstalledEngineBuild.xml" ^
+                    -clean ^
+                    -set:HostPlatformOnly=true ^
+                    -set:WithClient=true ^
+                    -set:WithServer=true ^
+                    -set:WithDDC=false ^
+                    -set:GameConfigurations=%UE_BUILD_CONFIGURATION% ^
+                    -set:BuiltDirectory="%BUILD_DIR%"
+                '''
+            }
+        }
+    }
+
+    post {
+        always {
+            slackSend channel: "$SLACK_CHANNEL",
+                color: ColorFromBuildResult("$currentBuild.currentResult"),
+                message:"Build $currentBuild.currentResult: ${env.JOB_NAME} #${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open>)"
+        }
+    }
+}

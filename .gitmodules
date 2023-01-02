@@ -1,0 +1,9 @@
+[submodule "docs/Doxygen-Flat-Theme"]
+	path = docs/Doxygen-Flat-Theme
+	url = https://github.com/life-exe/Doxygen-Flat-Theme
+[submodule "docs/Doxygen-Dark-Theme"]
+	path = docs/Doxygen-Dark-Theme
+	url = https://github.com/life-exe/Doxygen-Dark-Theme
+[submodule "docs/Unreal-Engine-Doxygen-Filter"]
+	path = docs/Unreal-Engine-Doxygen-Filter
+	url = https://github.com/life-exe/Unreal-Engine-Doxygen-Filter

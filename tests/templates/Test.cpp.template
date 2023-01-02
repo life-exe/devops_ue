@@ -1,0 +1,16 @@
+%COPYRIGHT_LINE%
+NEW_LINE
+#if WITH_AUTOMATION_TESTS
+NEW_LINE
+#include %TEST_INCLUDE_FILE%
+#include "CoreMinimal.h"
+#include "Misc/AutomationTest.h"
+NEW_LINE
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FTestClassName, "Category.TestName", EAutomationTestFlags::ApplicationContextMask %OR% EAutomationTestFlags::ProductFilter %OR% EAutomationTestFlags::HighPriority);
+NEW_LINE
+bool FTestClassName::RunTest(const FString%AND% Parameters)
+{
+    return true;
+}
+NEW_LINE
+#endif

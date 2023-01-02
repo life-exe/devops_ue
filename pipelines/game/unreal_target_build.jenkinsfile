@@ -1,0 +1,73 @@
+def ColorFromBuildResult(result){
+    if("${result}" == 'SUCCESS') return '#18A558'
+    if("${result}" == 'ABORTED') return '#6e6e6e'
+    if("${result}" == 'UNSTABLE') return '#fcba03'
+    return '#FF0000'
+}
+
+pipeline {
+    agent {
+        node {
+            label ""
+            customWorkspace "$BUILD_DIR"
+        }
+    }
+
+    /* environment {
+        GIT_URL_GAME = 'https://github.com/life-exe/UnrealTPSGame'
+        GIT_CREDENTIALS_GAME = 'life-exe-github'
+        GIT_BRANCH_GAME = 'master'
+        UAT_PATH = 'C:\\Epic Games\\UE Binary\\UE_5.0\\Engine\\Build\\BatchFiles\\RunUAT.bat'
+        PROJECT_PATH = "$BUILD_DIR\\TPS.uproject"
+        // ARCHIVE_PATH = "c:\\JenkinsJobs\\Artifacts\\$JOB_NAME\\$BUILD_NUMBER"
+        ARCHIVE_PATH = "$BUILD_DIR\\Build"
+        BUILD_FLAGS = '-build -cook -package -stage -archive -pak -allmaps' // -server -client -noclient
+        ZIP_DIR = "Build\\**\\*.*"
+        SLACK_CHANNEL = 'tps-game-builds'
+        PLATFORM = 'Win64' // ['Android', 'Linux'..]
+        CONFIG = 'Development' // ['Development', 'Shipping', 'DebugGame']
+    }*/
+
+    stages {
+        stage('Git clone') {
+            steps {
+                slackSend channel: "$SLACK_CHANNEL",
+                    color: "$currentBuild.previousBuild" == 'null' ? '#18A558' :
+                    ColorFromBuildResult("$currentBuild.previousBuild.result"),
+                    message:"Build started: ${env.JOB_NAME} #${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open>)"
+
+                checkout([$class: 'GitSCM',
+                    branches: [[name: "$GIT_BRANCH_GAME"]],
+                    extensions: [[$class: 'CleanBeforeCheckout']],
+                    userRemoteConfigs: [[credentialsId: "$GIT_CREDENTIALS_GAME",
+                    url: "$GIT_URL_GAME"]]])
+            }
+        }
+        stage('Build') {
+            steps {
+                bat '''
+                    "%UAT_PATH%" BuildCookRun ^
+                    -project="%PROJECT_PATH%" ^
+                    -platform="%PLATFORM%" ^
+                    -clientconfig="%CONFIG%" ^
+                    -serverconfig="%CONFIG%" ^
+                    -archivedirectory="%ARCHIVE_PATH%" ^
+                    %BUILD_FLAGS% -noturnkeyvariables
+                '''
+            }
+        }
+        stage('Archive artifacts') {
+            steps {
+                archiveArtifacts artifacts: "$ZIP_DIR"
+            }
+        }
+    }
+
+    post {
+        always {
+            slackSend channel: "$SLACK_CHANNEL",
+                color: ColorFromBuildResult("$currentBuild.currentResult"),
+                message:"Build $currentBuild.currentResult: ${env.JOB_NAME} #${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open>)"
+        }
+    }
+}
