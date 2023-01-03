@@ -32,7 +32,7 @@ DOXYFILE_ENCODING      = UTF-8
 # title of most generated pages and in a few other places.
 # The default value is: My Project.
 
-PROJECT_NAME           = "TPS"
+PROJECT_NAME           = "My Project"
 
 # The PROJECT_NUMBER tag can be used to enter a project or revision number. This
 # could be handy for archiving the generated documentation or if some version
@@ -1034,7 +1034,7 @@ IMAGE_PATH             =
 # need to set EXTENSION_MAPPING for the extension otherwise the files are not
 # properly processed by doxygen.
 
-INPUT_FILTER           = py devops\docs\Unreal-Engine-Doxygen-Filter\filter_ue4_macros.py
+INPUT_FILTER           = py devops_ue\docs\Unreal-Engine-Doxygen-Filter\filter_ue4_macros.py
 
 # The FILTER_PATTERNS tag can be used to specify filters on a per file pattern
 # basis. Doxygen will compare the file name with each pattern and apply the
@@ -1268,7 +1268,7 @@ HTML_HEADER            =
 # that doxygen normally uses.
 # This tag requires that the tag GENERATE_HTML is set to YES.
 
-HTML_FOOTER            = devops/docs/Doxygen-Dark-Theme/html_footer.html
+HTML_FOOTER            = devops_ue/docs/Doxygen-Dark-Theme/html_footer.html
 
 # The HTML_STYLESHEET tag can be used to specify a user-defined cascading style
 # sheet that is used by each HTML page. It can be used to fine-tune the look of
@@ -1293,7 +1293,7 @@ HTML_STYLESHEET        =
 # list). For an example see the documentation.
 # This tag requires that the tag GENERATE_HTML is set to YES.
 
-HTML_EXTRA_STYLESHEET  = devops/docs/Doxygen-Flat-Theme/src/doxygen-style.css
+HTML_EXTRA_STYLESHEET  = devops_ue/docs/Doxygen-Flat-Theme/src/doxygen-style.css
 
 # The HTML_EXTRA_FILES tag can be used to specify one or more extra images or
 # other source files which should be copied to the HTML output directory. Note
@@ -1303,11 +1303,11 @@ HTML_EXTRA_STYLESHEET  = devops/docs/Doxygen-Flat-Theme/src/doxygen-style.css
 # files will be copied as-is; there are no commands or markers available.
 # This tag requires that the tag GENERATE_HTML is set to YES.
 
-HTML_EXTRA_FILES       = devops/docs/Doxygen-Flat-Theme/src/img/closed-folder.png \
-devops/docs/Doxygen-Flat-Theme/src/img/document.png \
-devops/docs/Doxygen-Flat-Theme/src/img/opened-folder.png \
-devops/docs/Doxygen-Flat-Theme/src/img/off_sync.png \
-devops/docs/Doxygen-Flat-Theme/src/img/on_sync.png
+HTML_EXTRA_FILES       = devops_ue/docs/Doxygen-Flat-Theme/src/img/closed-folder.png \
+devops_ue/docs/Doxygen-Flat-Theme/src/img/document.png \
+devops_ue/docs/Doxygen-Flat-Theme/src/img/opened-folder.png \
+devops_ue/docs/Doxygen-Flat-Theme/src/img/off_sync.png \
+devops_ue/docs/Doxygen-Flat-Theme/src/img/on_sync.png
 
 # The HTML_COLORSTYLE_HUE tag controls the color of the HTML output. Doxygen
 # will adjust the colors in the style sheet and background images according to

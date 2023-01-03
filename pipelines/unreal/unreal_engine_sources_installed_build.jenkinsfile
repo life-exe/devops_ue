@@ -17,7 +17,7 @@ pipeline {
         GIT_URL_GAME = 'git@github.com:EpicGames/UnrealEngine.git'
         GIT_CREDENTIALS_GAME = 'life-exe-ssh'
         GIT_BRANCH_GAME = 'release'
-        GIT_CLONE_TIMEOUT_SEC = 180
+        GIT_CLONE_TIMEOUT_MIN = 180
         SLACK_CHANNEL = 'unreal-engine-sources'
         SETUP_FLAGS = '--force'
         PROJECT_FILE_FLAGS = '-2022'
@@ -36,7 +36,7 @@ pipeline {
                     checkout([$class: 'GitSCM', branches: [[name: "$GIT_BRANCH_GAME"]],
                         extensions: [
                             [$class: 'CleanBeforeCheckout'],
-                            [$class: 'CloneOption', timeout: "$GIT_CLONE_TIMEOUT_SEC"]
+                            [$class: 'CloneOption', timeout: "$GIT_CLONE_TIMEOUT_MIN"]
                         ],
                         userRemoteConfigs: [
                             [credentialsId: "$GIT_CREDENTIALS_GAME", url: "$GIT_URL_GAME"]

@@ -1,6 +1,7 @@
+:: Copyright LifeEXE. All Rights Reserved.
 @echo off
 
-call "%~dp0\..\config.bat"
+call "%~dp0..\..\devops_data\config.bat"
 
 pushd "%ProjectRoot%"
 FOR %%f in (%dirsToRemove%) do (

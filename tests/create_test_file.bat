@@ -1,6 +1,7 @@
+:: Copyright LifeEXE. All Rights Reserved.
 @echo off
 
-call "%~dp0\..\config.bat"
+call "%~dp0..\..\devops_data\config.bat"
 
 :begin
 set /p TestClassName= "Enter test class name :"
@@ -34,8 +35,8 @@ rem create dir
 if not exist "%TestAbsoluteDir%" mkdir "%TestAbsoluteDir%"
 
 rem full paths .h / .cpp template files
-set TestCppTemplateFilePath=%ProjectRoot%\devops\tests\templates\Test.cpp.template
-set TestHTemplateFilePath=%ProjectRoot%\devops\tests\templates\Test.h.template
+set TestCppTemplateFilePath=%ProjectRoot%\devops_ue\tests\templates\Test.cpp.template
+set TestHTemplateFilePath=%ProjectRoot%\devops_ue\tests\templates\Test.h.template
 
 rem template file vars
 rem path with \
@@ -54,7 +55,7 @@ call :createTemplate "%TestCppTemplateFilePath%" , "%TestCppFilePath%"
 call :createTemplate "%TestHTemplateFilePath%" , "%TestHFilePath%"
 
 rem clang-format
-call "%~dp0\..\misc\format_all_files.bat"
+call "%~dp0..\misc\format_all_files.bat"
 
 echo %TEST_INCLUDE_FILE_1%
 goto:EOF

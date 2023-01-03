@@ -1,5 +1,5 @@
 #!/bin/sh
-echo "Hello shell"
+
 for file in $(git diff --staged --name-only | grep -i -E '\.(cpp|h|cs)$'); do
     echo ${file}
     clang-format -i ${file}

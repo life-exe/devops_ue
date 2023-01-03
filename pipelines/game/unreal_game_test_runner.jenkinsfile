@@ -14,6 +14,7 @@ pipeline {
     }
 
     environment {/*
+        BUILD_DIR = 'c:\\JenkinsJobs\\TPS-test-runner-pipeline'
         GIT_URL_GAME = 'https://github.com/life-exe/UnrealTPSGame'
         GIT_CREDENTIALS_GAME = 'life-exe-github'
         GIT_BRANCH_GAME = 'master'
@@ -51,7 +52,10 @@ pipeline {
 
                 checkout([$class: 'GitSCM',
                     branches: [[name: "$GIT_BRANCH_GAME"]],
-                    extensions: [[$class: 'CleanBeforeCheckout']],
+                    extensions: [
+                        [$class: 'CleanBeforeCheckout'],
+                        [$class: 'SubmoduleOption', disableSubmodules: false, recursiveSubmodules: true]
+                    ],
                     userRemoteConfigs: [[credentialsId: "$GIT_CREDENTIALS_GAME",
                     url: "$GIT_URL_GAME"]]])
             }
@@ -102,10 +106,10 @@ pipeline {
         }
         stage('Publish test results') {
             environment {
-                CONVERTER_PATH="$BUILD_DIR\\devops\\tests\\ue_report_to_junit.py"
+                CONVERTER_PATH="$BUILD_DIR\\devops_ue\\tests\\ue_report_to_junit.py"
                 UE_TESTS_PATH="$BUILD_DIR\\Build\\Tests\\index.json"
                 JUNIT_TESTS_PATH="$BUILD_DIR\\Build\\Tests\\index.xml"
-                COBERTURA_PATCHER_PATH="$BUILD_DIR\\devops\\tests\\cobertura_report_patcher.py"
+                COBERTURA_PATCHER_PATH="$BUILD_DIR\\devops_ue\\tests\\cobertura_report_patcher.py"
                 CODE_COVERAGE_PATH="$BUILD_DIR\\Build\\Tests\\Coverage.xml"
             }
             steps {

@@ -1,3 +1,4 @@
+:: Copyright LifeEXE. All Rights Reserved.
 @echo off
 
-git submodule update --init --recursive
+git submodule update --init --recursive --remote
