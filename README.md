@@ -67,7 +67,7 @@ setup.bat
 
 * The main file that you need to config is **config.bat**
 * Required variables you need to edit accordingly to your local path in this file are: **EnginePath, ProjectPureName, VersionSelector**
-* Commit **config.bat** to your repository
+* Commit **config.bat** to your repository if you are working alone, otherwise don't do this and just keep this file as local
 * **Doxyfile** is for docs generation with doxygen. You can edit all properties that you need and then commit **Doxyfile** to your repo. Or just delete this file if you don't need docs generation. Most important property to edit:
 
 ```

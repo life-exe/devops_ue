@@ -24,7 +24,7 @@ set SourceCodePath=%ProjectRoot%\Source
 
 rem Build params
 set Platform=Win64
-:: Sipping, DebugGame
+:: Shipping, DebugGame
 set Configuration=Development
 set ArchivePath=%ProjectRoot%\Build
 
