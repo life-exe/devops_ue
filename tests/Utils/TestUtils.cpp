@@ -5,7 +5,7 @@
 #include "AutomationBlueprintFunctionLibrary.h"
 #include "BufferVisualizationData.h"
 
-namespace TPS
+namespace LifeExe
 {
 namespace Test
 {
