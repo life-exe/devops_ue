@@ -18,6 +18,7 @@ pipeline {
         GIT_URL_GAME = 'https://github.com/life-exe/UnrealTPSGame'
         GIT_CREDENTIALS_GAME = 'life-exe-github'
         GIT_BRANCH_GAME = 'master'
+        GIT_CLONE_TIMEOUT_MIN = 60
         UAT_PATH = 'C:\\Epic Games\\UE Binary\\UE_5.0\\Engine\\Build\\BatchFiles\\RunUAT.bat'
         PROJECT_PATH = "$BUILD_DIR\\TPS.uproject"
         // ARCHIVE_PATH = "c:\\JenkinsJobs\\Artifacts\\$JOB_NAME\\$BUILD_NUMBER"
@@ -39,7 +40,11 @@ pipeline {
 
                 checkout([$class: 'GitSCM',
                     branches: [[name: "$GIT_BRANCH_GAME"]],
-                    extensions: [[$class: 'CleanBeforeCheckout']],
+                    extensions: [
+                        [$class: 'CleanBeforeCheckout'],
+                        [$class: 'CloneOption', timeout: "$GIT_CLONE_TIMEOUT_MIN"],
+                        [$class: 'CheckoutOption', timeout: "$GIT_CLONE_TIMEOUT_MIN"]
+                    ],
                     userRemoteConfigs: [[credentialsId: "$GIT_CREDENTIALS_GAME",
                     url: "$GIT_URL_GAME"]]])
             }

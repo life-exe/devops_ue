@@ -18,6 +18,7 @@ pipeline {
         GIT_URL_GAME = 'https://github.com/life-exe/UnrealTPSGame'
         GIT_CREDENTIALS_GAME = 'life-exe-github'
         GIT_BRANCH_GAME = 'master'
+        GIT_CLONE_TIMEOUT_MIN = 60
         SLACK_CHANNEL = 'tps-game-builds'
         DOXYGEN_PATH = 'C:\\Program Files\\doxygen\\bin\\doxygen.exe'
         DOXYFILE_PATH = "$BUILD_DIR\\devops_data\\Doxyfile"
@@ -36,7 +37,9 @@ pipeline {
                     branches: [[name: "$GIT_BRANCH_GAME"]],
                     extensions: [
                         [$class: 'CleanBeforeCheckout'],
-                        [$class: 'SubmoduleOption', disableSubmodules: false, recursiveSubmodules: true]
+                        [$class: 'SubmoduleOption', disableSubmodules: false, recursiveSubmodules: true],
+                        [$class: 'CloneOption', timeout: "$GIT_CLONE_TIMEOUT_MIN"],
+                        [$class: 'CheckoutOption', timeout: "$GIT_CLONE_TIMEOUT_MIN"]
                     ],
                     userRemoteConfigs: [[credentialsId: "$GIT_CREDENTIALS_GAME",
                     url: "$GIT_URL_GAME"]]])

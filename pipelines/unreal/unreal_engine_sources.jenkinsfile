@@ -38,7 +38,8 @@ pipeline {
                     checkout([$class: 'GitSCM', branches: [[name: "$GIT_BRANCH_GAME"]],
                         extensions: [
                             [$class: 'CleanBeforeCheckout'],
-                            [$class: 'CloneOption', timeout: "$GIT_CLONE_TIMEOUT_MIN"]
+                            [$class: 'CloneOption', timeout: "$GIT_CLONE_TIMEOUT_MIN"],
+                            [$class: 'CheckoutOption', timeout: "$GIT_CLONE_TIMEOUT_MIN"]
                         ],
                         userRemoteConfigs: [
                             [credentialsId: "$GIT_CREDENTIALS_GAME", url: "$GIT_URL_GAME"]
