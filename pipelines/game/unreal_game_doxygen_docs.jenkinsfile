@@ -22,7 +22,7 @@ pipeline {
         SLACK_CHANNEL = 'tps-game-builds'
         DOXYGEN_PATH = 'C:\\Program Files\\doxygen\\bin\\doxygen.exe'
         DOXYFILE_PATH = "$BUILD_DIR\\devops_data\\Doxyfile"
-        DOCS_DIR = 'Documentation\\index'
+        DOCS_DIR = 'Documentation\\html'
     }*/
 
     stages {
