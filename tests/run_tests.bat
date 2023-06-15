@@ -7,7 +7,7 @@ call "%~dp0..\..\devops_data\config.bat"
 set Before=public bool UnoptimizedCode = false;
 set After=public bool UnoptimizedCode = true;
 set File=%SourceCodePath%\%ProjectPureName%Editor.Target.cs
-powershell -Command "(gc '%File%') -replace '%Before%', '%After%' | Out-File  %File%"
+powershell -Command "(gc '%File%') -replace '%Before%', '%After%' | Out-File  '%File%'"
 
 rem build sources
 call "%RunUATPath%" BuildCookRun ^
@@ -38,7 +38,7 @@ set ExludedSources=%RETVAL%
 
 rem clean obsolete artifacts
 del /q LastCoverageResults.log
-powershell -Command "(gc %File%) -replace '%After%', '%Before%' | Out-File  %File%"
+powershell -Command "(gc '%File%') -replace '%After%', '%Before%' | Out-File  '%File%'"
 
 rem copy test artifacts
 set TestsDir=%~dp0
