@@ -69,7 +69,7 @@ pipeline {
             }
             steps {
                 bat '''
-                    powershell -Command "(gc '%EDITOR_TARGET_PATH%') -replace '%UNOPTIMIZE_FALSE_LINE%', '%UNOPTIMIZE_TRUE_LINE%' | Out-File  %EDITOR_TARGET_PATH%"
+                    powershell -Command "(gc '%EDITOR_TARGET_PATH%') -replace '%UNOPTIMIZE_FALSE_LINE%', '%UNOPTIMIZE_TRUE_LINE%' | Out-File  '%EDITOR_TARGET_PATH%'"
                 '''
             }
         }
@@ -103,7 +103,7 @@ pipeline {
             }
             steps {
                 bat '''
-                    powershell -Command "(gc '%EDITOR_TARGET_PATH%') -replace '%UNOPTIMIZE_TRUE_LINE%', '%UNOPTIMIZE_FALSE_LINE%' | Out-File  %EDITOR_TARGET_PATH%"
+                    powershell -Command "(gc '%EDITOR_TARGET_PATH%') -replace '%UNOPTIMIZE_TRUE_LINE%', '%UNOPTIMIZE_FALSE_LINE%' | Out-File  '%EDITOR_TARGET_PATH%'"
                 '''
             }
         }
