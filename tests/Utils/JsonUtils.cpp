@@ -9,7 +9,7 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogJsonUtils, All, All);
 
-using namespace TPS::Test;
+using namespace LifeExe::Test;
 
 bool JsonUtils::WriteInputData(const FString& FileName, const FInputData& InputData)
 {
