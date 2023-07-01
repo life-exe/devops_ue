@@ -5,7 +5,7 @@
 #include "<Path>/Utils/InputRecordingUtils.h"
 #include "CoreMinimal.h"
 
-namespace TPS
+namespace LifeExe
 {
 namespace Test
 {
@@ -18,4 +18,4 @@ public:
 };
 
 }  // namespace Test
-}  // namespace TPS
+}  // namespace LifeExe

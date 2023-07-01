@@ -62,10 +62,10 @@ UWorld* GetTestGameWorld();
 
 void CallFuncByNameWithParams(UObject* Object, const FString& FuncName, const TArray<FString>& Params);
 
-class FTPSUntilLatentCommand : public IAutomationLatentCommand
+class FUntilLatentCommand : public IAutomationLatentCommand
 {
 public:
-    FTPSUntilLatentCommand(TFunction<void()> InCallback, TFunction<void()> InTimeoutCallback, float InTimeout = 5.0f);
+    FUntilLatentCommand(TFunction<void()> InCallback, TFunction<void()> InTimeoutCallback, float InTimeout = 5.0f);
     virtual bool Update() override;
 
 private:
