@@ -24,13 +24,13 @@ rem run code coverage
 ::set ExportType=cobertura:%ReportOutputPath%\Coverage\CodeCoverageReport.xml
 set ExportType=html:%ReportOutputPath%\Coverage\CodeCoverageReport
 
-call :NORMALIZEPATH %ProjectRoot%
+call :NORMALIZEPATH "%ProjectRoot%"
 set Module=%RETVAL%
 
-call :NORMALIZEPATH %SourceCodePath%
+call :NORMALIZEPATH "%SourceCodePath%"
 set Sources=%RETVAL%
 
-call :NORMALIZEPATH %ExludedPathForTestReport%
+call :NORMALIZEPATH "%ExludedPathForTestReport%"
 set ExludedSources=%RETVAL%
 
 "%OpenCPPCoveragePath%" --modules="%Module%" --sources="%Sources%" ^

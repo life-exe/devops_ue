@@ -146,6 +146,6 @@ PropertyClass GetPropertyValueByName(ObjectClass* Obj, const FString& PropName)
 }
 
 }  // namespace Test
-}  // namespace TPS
+}  // namespace LifeExe
 
 #endif
