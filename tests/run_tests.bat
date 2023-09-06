@@ -18,7 +18,7 @@ call "%RunUATPath%" BuildCookRun ^
 
 rem run tests
 set TestRunner="%EditorPath%" "%ProjectPath%" -ExecCmds="Automation RunTests %TestNames%;Quit" ^
--log -abslog="%TestOutputLogPath%" -nosplash -ReportOutputPath="%ReportOutputPath%"
+-log -abslog="%TestOutputLogPath%" -nosplash -ReportExportPath="%ReportOutputPath%"
 
 rem run code coverage
 ::set ExportType=cobertura:%ReportOutputPath%\Coverage\CodeCoverageReport.xml
