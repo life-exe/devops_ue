@@ -46,6 +46,7 @@ rem Tests
 set TestNames=
 set TestOutputLogPath=%ProjectRoot%\Build\Tests\Tests.log
 set ReportOutputPath=%ProjectRoot%\Build\Tests
-set ExludedPathForTestReport=%SourceCodePath%\%ProjectPureName%\Tests
+::To specify multiple paths for excluding sources, use the semicolon symbol ";". Example: %SourceCodePath%\%ProjectPureName%\Public\Tests;%SourceCodePath%\%ProjectPureName%\Private\Tests
+set ExludedPathsForTestReport=%SourceCodePath%\%ProjectPureName%\Tests
 set UEAutomationContentPath=%EnginePath%\Engine\Content\Automation
 set OpenCPPCoveragePath=C:\Program Files\OpenCppCoverage\OpenCppCoverage.exe

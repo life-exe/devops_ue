@@ -30,11 +30,22 @@ set Module=%RETVAL%
 call :NORMALIZEPATH "%SourceCodePath%"
 set Sources=%RETVAL%
 
-call :NORMALIZEPATH "%ExludedPathForTestReport%"
-set ExludedSources=%RETVAL%
+set "ExcludedSources="
+set First="true"
+SETLOCAL ENABLEDELAYEDEXPANSION
+for %%i in (%ExludedPathsForTestReport%) do (
+    call :NORMALIZEPATH "%%i"
+    set PathToAdd=!RETVAL!
+    if !First!=="true" (
+      set First="false"
+      set "ExcludedSources=--excluded_sources="!PathToAdd!""
+    ) else (
+      set "ExcludedSources=!ExcludedSources! --excluded_sources="!PathToAdd!""
+    )
+)
 
 "%OpenCPPCoveragePath%" --modules="%Module%" --sources="%Sources%" ^
---excluded_sources="%ExludedSources%" --export_type="%ExportType%" -v -- %TestRunner%
+%ExcludedSources% --export_type="%ExportType%" -v -- %TestRunner%
 
 rem clean obsolete artifacts
 del /q LastCoverageResults.log
