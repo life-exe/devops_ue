@@ -16,6 +16,9 @@ copy "%~dp0setup\.clang-format.template" "%~dp0..\devops_data\.clang-format"
 copy "%~dp0setup\.gitignore.template" "%~dp0..\devops_data\.gitignore"
 copy "%~dp0setup\LICENSE.template" "%~dp0..\devops_data\LICENSE.md"
 copy "%~dp0setup\Doxyfile.template" "%~dp0..\devops_data\Doxyfile"
-
 echo All files were copied to "%~dp0..\devops_data"
+
+REM Update ProjectPureName in a config.bat with the name of a found .uproject file
+python set_ProjectPureName.py
+
 pause
