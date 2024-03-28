@@ -1,0 +1,85 @@
+## Uncomment/add the branches to run this Workflow on them
+name: Game Documentation (Linux workflow)
+on:
+  push:
+    branches: 
+    #- main
+    - not-existing-branch
+  pull_request:
+    branches: 
+    #- main
+    - not-existing-branch
+
+## This is for deploy-pages
+permissions:
+  pages: write
+  deployments: write
+  id-token: write
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+
+    ## This is for deploy-pages
+    environment:
+     name: github-pages
+     url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Check Installed Software
+        run: |
+          python --version
+          pip --version
+          git --version
+
+      - name: Determine Python path
+        id: find_python_path
+        run: |
+          # Find the path to Python executable
+          PYTHON_EXEC=$(command -v python)
+          echo "PYTHON_EXEC=$PYTHON_EXEC" >> $GITHUB_ENV
+
+      ## py command is used in Doxyfile tags
+      - name: Create symbolic link for py command
+        run: |
+          # Create symbolic link named "py" pointing to Python executable
+          sudo ln -s $PYTHON_EXEC /usr/bin/py
+
+      - name: Verify py command
+        run: |
+          # Verify py command by checking its version
+          py --version
+          
+      - name: Checkout
+        uses: actions/checkout@v4
+        with: 
+          submodules: 'recursive'
+
+      - name: Install Doxygen
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y doxygen
+
+      - name: Verify Doxygen installation
+        run: doxygen --version
+
+      ## Path tags in Doxyfile must have forward slashes on Linux
+      - name: Replace back slashes
+        run: |
+          py devops_ue/docs/replace-path-backslashes.py devops_data/Doxyfile
+        working-directory: ${{ github.workspace }}
+
+      - name: Run Doxygen
+        run: doxygen devops_data/Doxyfile
+        
+      - name: Upload Docs to GitHub Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: Documentation/html
+
+      - name: Setup GitHub Pages
+        uses: actions/configure-pages@v4
+        
+      - name: Deploy To GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
