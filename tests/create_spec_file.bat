@@ -6,7 +6,10 @@ call "%~dp0..\..\devops_data\config.bat"
 :begin
 set /p TestClassName= "Enter test class name (without word 'Test' in the name) :"
 if [%TestClassName%]==[] goto:begin
-set /p TestRelativePath= "Enter relative to [Source\%ProjectPureName%] directory (use \ symbol for subdirs):"
+
+rem Setting TestRelativePath
+call set_TestRelativePath.bat
+if "%RETURNED_VALUE%"=="EXIT" goto:EOF
 
 rem '.spec.cpp' file name
 set TestCppFileName=%TestClassName%.spec.cpp
@@ -20,6 +23,10 @@ rem Confirmation
 echo.
 echo =========== File to be created: ===========
 echo %TestCppFilePath%
+echo.
+echo =========== FYI: Path to be excluded from OpenCppCoverage report: ===========
+echo %ExcludedPathForTestReport%*
+echo.
 echo ======================================
 echo.
 set /p UserConfirmed= "Confirm? [Y/N or (E)xit] :" 
