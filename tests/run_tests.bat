@@ -30,11 +30,11 @@ set Module=%RETVAL%
 call :NORMALIZEPATH "%SourceCodePath%"
 set Sources=%RETVAL%
 
-call :NORMALIZEPATH "%ExludedPathForTestReport%"
-set ExludedSources=%RETVAL%
+call :NORMALIZEPATH "%ExcludedPathForTestReport%"
+set ExcludedSources=%RETVAL%
 
 "%OpenCPPCoveragePath%" --modules="%Module%" --sources="%Sources%" ^
---excluded_sources="%ExludedSources%" --export_type="%ExportType%" -v -- %TestRunner%
+--excluded_sources="%ExcludedSources%" --export_type="%ExportType%" -v -- %TestRunner%
 
 rem clean obsolete artifacts
 del /q LastCoverageResults.log
