@@ -5,19 +5,19 @@ call "%~dp0..\..\devops_data\config.bat"
 
 :begin
 set /p TestClassName= "Enter test class name :"
-if [%TestClassName%]==[] goto:begin
+if [%TestClassName%]==[] goto :begin
 
-rem Setting TestRelativePath
+rem Setting TestRelativePath, ModuleName
 call set_TestRelativePath.bat
-if "%RETURNED_VALUE%"=="EXIT" goto:EOF
+if "%RETURNED_VALUE%"=="EXIT" goto :EOF
 
 rem .h / .cpp file names
 set TestCppFileName=%TestClassName%.cpp
 set TestHFileName=%TestClassName%.h
 
 rem full paths to .h / .cpp files to create
-set TestAbsoluteDir=%SourceCodePath%\%ProjectPureName%\%TestRelativePath%
-if [%TestRelativePath%]==[] set TestAbsoluteDir=%SourceCodePath%\%ProjectPureName%
+set TestAbsoluteDir=%SourceCodePath%\%ModuleName%\%TestRelativePath%
+if [%TestRelativePath%]==[] set TestAbsoluteDir=%SourceCodePath%\%ModuleName%
 set TestCppFilePath=%TestAbsoluteDir%\%TestCppFileName%
 set TestHFilePath=%TestAbsoluteDir%\%TestHFileName%
 
@@ -29,14 +29,17 @@ echo %TestHFilePath%
 echo.
 echo =========== FYI: Path to be excluded from OpenCppCoverage report: ===========
 echo %ExcludedPathForTestReport%*
+if not [%TestsModuleName%]==[] (
+	echo %SourceCodePath%\%TestsModuleName%*
+)
 echo.
 echo ======================================
 echo.
 set /p UserConfirmed= "Confirm? [Y/N or (E)xit] :" 
-if %UserConfirmed% == N goto:begin
-if %UserConfirmed% == n goto:begin
-if %UserConfirmed% == E goto:EOF
-if %UserConfirmed% == e goto:EOF
+if %UserConfirmed% == N goto :begin
+if %UserConfirmed% == n goto :begin
+if %UserConfirmed% == E goto :EOF
+if %UserConfirmed% == e goto :EOF
 
 rem create dir
 if not exist "%TestAbsoluteDir%" mkdir "%TestAbsoluteDir%"
@@ -47,7 +50,7 @@ set TestHTemplateFilePath=%ProjectRoot%\devops_ue\tests\templates\Test.h.templat
 
 rem template file vars
 rem path with \
-set TempPath=%ProjectPureName%\%TestRelativePath%\%TestClassName%.h
+set TempPath=%ModuleName%\%TestRelativePath%\%TestClassName%.h
 rem replace \ with / for include string
 set TEST_INCLUDE_FILE="%TempPath:\=/%"
 set "OR=^|"
@@ -64,8 +67,12 @@ call :createTemplate "%TestHTemplateFilePath%" , "%TestHFilePath%"
 rem clang-format
 call "%~dp0..\misc\format_all_files.bat"
 
-echo %TEST_INCLUDE_FILE_1%
-goto:EOF
+:: debug
+:: echo %TEST_INCLUDE_FILE%
+
+:: ========== FUNCTIONS ==========
+
+goto :EOF
 
 rem function to create .h / .cpp from template
 :createTemplate
@@ -78,4 +85,4 @@ for /f "usebackq tokens=*" %%a in ("%TemplateName%") do (
         call echo %%a>>"%FileToWriteIn%"
     )
 )
-
+exit /b

@@ -50,3 +50,4 @@ set RelativePathToTests=Tests
 set ExcludedPathForTestReport=%SourceCodePath%\%ProjectPureName%\%RelativePathToTests%
 set UEAutomationContentPath=%EnginePath%\Engine\Content\Automation
 set OpenCPPCoveragePath=C:\Program Files\OpenCppCoverage\OpenCppCoverage.exe
+set TestsModuleName=
