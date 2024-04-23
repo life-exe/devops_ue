@@ -33,8 +33,21 @@ set Sources=%RETVAL%
 call :NORMALIZEPATH "%ExcludedPathForTestReport%"
 set ExcludedSources=%RETVAL%
 
-"%OpenCPPCoveragePath%" --modules="%Module%" --sources="%Sources%" ^
---excluded_sources="%ExcludedSources%" --export_type="%ExportType%" -v -- %TestRunner%
+rem Make command to run OpenCppCoverage
+
+set RunOpenCppCoverageCommand="%OpenCPPCoveragePath%" --modules="%Module%" --sources="%Sources%"
+
+:: Exclude module with tests from cpp coverage report if the module is defined in config.bat
+if [%TestsModuleName%]==[] goto :afterAddingTestsModule
+set "TestsModulePath=%Sources%\%TestsModuleName%"
+:: excluded_sources argument can be used multiple times
+set RunOpenCppCoverageCommand=%RunOpenCppCoverageCommand% --excluded_sources="%TestsModulePath%"
+:afterAddingTestsModule
+
+set RunOpenCppCoverageCommand=%RunOpenCppCoverageCommand% --excluded_sources="%ExcludedSources%" --export_type="%ExportType%" -v -- %TestRunner%
+
+:: Run OpenCppCoverage
+%RunOpenCppCoverageCommand%
 
 rem clean obsolete artifacts
 del /q LastCoverageResults.log
