@@ -5,9 +5,9 @@ NEW_LINE
 #include "CoreMinimal.h"
 #include "Misc/AutomationTest.h"
 NEW_LINE
-DEFINE_SPEC(FTestClassName, "Category", EAutomationTestFlags::ApplicationContextMask %OR% EAutomationTestFlags::ProductFilter %OR% EAutomationTestFlags::HighPriority)
+DEFINE_SPEC(FTestClassName, "Category", EAutomationTestFlags::EditorContext %OR% EAutomationTestFlags::ProductFilter %OR% EAutomationTestFlags::HighPriority)
 NEW_LINE
-// BEGIN_DEFINE_SPEC(FTestClassName, "Category", EAutomationTestFlags::ApplicationContextMask %OR% EAutomationTestFlags::ProductFilter %OR% EAutomationTestFlags::HighPriority)
+// BEGIN_DEFINE_SPEC(FTestClassName, "Category", EAutomationTestFlags::EditorContext %OR% EAutomationTestFlags::ProductFilter %OR% EAutomationTestFlags::HighPriority)
 NEW_LINE
 // END_DEFINE_SPEC(FTestClassName)
 NEW_LINE
