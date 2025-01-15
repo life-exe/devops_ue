@@ -8,12 +8,13 @@ def ColorFromBuildResult(result){
 pipeline {
     agent {
         node {
-            label "unreal_test_runner_label"
+            label "$TEST_RUNNER_LABEL"
             customWorkspace "$BUILD_DIR"
         }
     }
 
     environment {/*
+        TEST_RUNNER_LABEL = 'unreal_test_runner_label'
         BUILD_DIR = 'c:\\JenkinsJobs\\TPS-test-runner-pipeline'
         GIT_URL_GAME = 'https://github.com/life-exe/UnrealTPSGame'
         GIT_CREDENTIALS_GAME = 'life-exe-github'
