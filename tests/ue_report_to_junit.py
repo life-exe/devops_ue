@@ -20,9 +20,8 @@ def main():
     args = parser.parse_args()
 
     # load JSON
-    json_file = open(args.ue_report_path, encoding="utf-8-sig")
-    json_obj = json.loads(json_file.read())
-    # print(json_obj)
+    with open(args.ue_report_path, encoding="utf-8-sig") as json_file:
+        json_obj = json.load(json_file)
 
     # create xml root
     xml_root = xmlTree.Element(
@@ -39,7 +38,8 @@ def main():
     errors = {}
     for test in json_obj["tests"]:
         test_name = test["testDisplayName"]
-        test_suite_name = test["fullTestPath"][: test["fullTestPath"].find(test_name) - 1]
+        last_idx = test["fullTestPath"].rfind(test_name)
+        test_suite_name = test["fullTestPath"][: last_idx - 1] if last_idx > 0 else test["fullTestPath"]
 
         test_suite = tests[test_suite_name] if test_suite_name in tests else {}
 
@@ -52,12 +52,11 @@ def main():
             test_suite.update({test_name: error_msg})
 
         tests.update({test_suite_name: test_suite})
-    # print(tests)
 
     # convert to xml nodes
     for test_suite in tests:
         errs_number = errors[test_suite] if test_suite in errors else 0
-        tests_count_in_suite=len(tests[test_suite])
+        tests_count_in_suite = len(tests[test_suite])
 
         xml_test_suite = xmlTree.SubElement(
             xml_root,
@@ -74,11 +73,10 @@ def main():
                 xmlTree.SubElement(xml_test_case, "failure", message=tests[test_suite][test_case])
 
     # write output XML
-    xml_output = miniDom.parseString(xmlTree.tostring(xml_root, encoding="utf8", method="xml"))
-    # print(xml_output.toprettyxml(indent="  "))
+    xml_output = miniDom.parseString(xmlTree.tostring(xml_root, encoding="utf-8", method="xml"))
 
-    xml_file = open(args.junit_xml_path, "w")
-    xml_file.write(xml_output.toprettyxml(indent="  "))
+    with open(args.junit_xml_path, "w", encoding="utf-8") as xml_file:
+        xml_file.write(xml_output.toprettyxml(indent="  "))
 
 def create_error_msg(test):
     error_msg = ""
@@ -87,7 +85,7 @@ def create_error_msg(test):
         if entry["event"]["type"] == "Error":
             if error_msg != "":
                 error_msg += " + "
-            error_msg += "%s%s %s"%(str(err_counter), ":", entry["event"]["message"])
+            error_msg += "%s%s %s" % (str(err_counter), ":", entry["event"]["message"])
             err_counter += 1
 
     return error_msg

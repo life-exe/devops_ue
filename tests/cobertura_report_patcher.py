@@ -20,11 +20,12 @@ def main():
     xml_root = xml_tree.getroot()
 
     # patch source XML node
-    xml_node_source = xml_root[0].find('source')
-    xml_node_source.text = xml_node_source.text + "\\\\"
+    xml_node_source = xml_root.find('./sources/source')
+    if xml_node_source is not None and xml_node_source.text and not xml_node_source.text.endswith('\\'):
+        xml_node_source.text = xml_node_source.text + "\\\\"
     
     # write XML back
-    xml_tree.write(args.cobertura_report_path)
+    xml_tree.write(args.cobertura_report_path, encoding="utf-8", xml_declaration=True)
 
 if __name__ == "__main__":
     main()
