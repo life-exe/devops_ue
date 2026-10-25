@@ -2,3 +2,4 @@
 @echo off
 
 robocopy "%~dp0hooks" "%~dp0..\..\.git\hooks"
+if %ERRORLEVEL% LSS 8 exit /b 0

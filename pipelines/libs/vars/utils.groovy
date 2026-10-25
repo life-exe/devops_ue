@@ -5,12 +5,16 @@ def SlackColorFromBuildResult(result){
     return '#FF0000'
 }
 
+def ColorFromBuildResult(result){
+    return SlackColorFromBuildResult(result)
+}
+
 // https://stackoverflow.com/a/54176916
 def loadEnvironmentVariables(path){
-    def props = readProperties  file: path
-    keys= props.keySet()
+    def props = readProperties file: path
+    keys = props.keySet()
     for(key in keys) {
         value = props["${key}"]
         env."${key}" = "${value}"
     }
-} 
+}

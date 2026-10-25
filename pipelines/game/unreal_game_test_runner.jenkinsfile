@@ -69,7 +69,7 @@ pipeline {
             }
             steps {
                 bat '''
-                    powershell -NoProfile -Command "$f = '%EDITOR_TARGET_PATH%'; $t = [IO.File]::ReadAllText($f); $n = $t.Replace('%UNOPTIMIZE_FALSE_LINE%', '%UNOPTIMIZE_TRUE_LINE%'); if ($n -ne $t) { [IO.File]::WriteAllText($f, $n) }"
+                    powershell -NoProfile -Command "$f = '%EDITOR_TARGET_PATH%'; if (Test-Path -LiteralPath $f) { $t = [IO.File]::ReadAllText($f); $n = $t.Replace('%UNOPTIMIZE_FALSE_LINE%', '%UNOPTIMIZE_TRUE_LINE%'); if ($n -ne $t) { [IO.File]::WriteAllText($f, $n) } }"
                 '''
             }
         }
@@ -93,7 +93,7 @@ pipeline {
                     "%OPEN_CPP_COVERAGE_PATH%" --modules="%BUILD_DIR%" --sources="%SOURCE_CODE_PATH%" ^
                     --excluded_sources="%EXCLUDED_SOURCES%" --export_type="%CODE_COVERAGE_EXPORT_TYPE%" -- %TEST_RUNNER%
 
-                    if errorlevel 255 echo WARNING: Some tests failed, error code: %errorlevel% & exit /b 0
+                    if not "%errorlevel%"=="0" echo WARNING: Some tests failed, error code: %errorlevel% & exit /b 0
                 '''
             }
         }
@@ -103,7 +103,7 @@ pipeline {
             }
             steps {
                 bat '''
-                    powershell -NoProfile -Command "$f = '%EDITOR_TARGET_PATH%'; $t = [IO.File]::ReadAllText($f); $n = $t.Replace('%UNOPTIMIZE_TRUE_LINE%', '%UNOPTIMIZE_FALSE_LINE%'); if ($n -ne $t) { [IO.File]::WriteAllText($f, $n) }"
+                    powershell -NoProfile -Command "$f = '%EDITOR_TARGET_PATH%'; if (Test-Path -LiteralPath $f) { $t = [IO.File]::ReadAllText($f); $n = $t.Replace('%UNOPTIMIZE_TRUE_LINE%', '%UNOPTIMIZE_FALSE_LINE%'); if ($n -ne $t) { [IO.File]::WriteAllText($f, $n) } }"
                 '''
             }
         }
@@ -117,8 +117,8 @@ pipeline {
             }
             steps {
                 bat '''
-                    "%CONVERTER_PATH%" -ue_report_path="%UE_TESTS_PATH%" -junit_xml_path="%JUNIT_TESTS_PATH%"
-                    "%COBERTURA_PATCHER_PATH%" -cobertura_report_path="%CODE_COVERAGE_PATH%"
+                    python "%CONVERTER_PATH%" -ue_report_path="%UE_TESTS_PATH%" -junit_xml_path="%JUNIT_TESTS_PATH%"
+                    python "%COBERTURA_PATCHER_PATH%" -cobertura_report_path="%CODE_COVERAGE_PATH%"
                 '''
                 junit 'Build\\Tests\\index.xml'
                 cobertura coberturaReportFile: 'Build\\Tests\\Coverage.xml', onlyStable: false
@@ -128,6 +128,13 @@ pipeline {
 
     post {
         always {
+            script {
+                if (env.UNOPTIMIZED_BUILD == 'true' && env.EDITOR_TARGET_PATH) {
+                    bat '''
+                        powershell -NoProfile -Command "$f = '%EDITOR_TARGET_PATH%'; if (Test-Path -LiteralPath $f) { $t = [IO.File]::ReadAllText($f); $n = $t.Replace('%UNOPTIMIZE_TRUE_LINE%', '%UNOPTIMIZE_FALSE_LINE%'); if ($n -ne $t) { [IO.File]::WriteAllText($f, $n) } }"
+                    '''
+                }
+            }
             slackSend channel: "$SLACK_CHANNEL",
                 color: ColorFromBuildResult("$currentBuild.currentResult"),
                 message:"Build $currentBuild.currentResult: ${env.JOB_NAME} #${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open>)"
