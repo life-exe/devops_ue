@@ -5,13 +5,13 @@ NEW_LINE
 #include "CoreMinimal.h"
 #include "Misc/AutomationTest.h"
 NEW_LINE
-DEFINE_SPEC(FTestClassName, "Category", EAutomationTestFlags::EditorContext %OR% EAutomationTestFlags::ProductFilter %OR% EAutomationTestFlags::HighPriority)
+DEFINE_SPEC(F%TestClassName%, "Category", EAutomationTestFlags::EditorContext %OR% EAutomationTestFlags::ProductFilter %OR% EAutomationTestFlags::HighPriority)
 NEW_LINE
-// BEGIN_DEFINE_SPEC(FTestClassName, "Category", EAutomationTestFlags::EditorContext %OR% EAutomationTestFlags::ProductFilter %OR% EAutomationTestFlags::HighPriority)
+// BEGIN_DEFINE_SPEC(F%TestClassName%, "Category", EAutomationTestFlags::EditorContext %OR% EAutomationTestFlags::ProductFilter %OR% EAutomationTestFlags::HighPriority)
 NEW_LINE
-// END_DEFINE_SPEC(FTestClassName)
+// END_DEFINE_SPEC(F%TestClassName%)
 NEW_LINE
-void FTestClassName::Define()
+void F%TestClassName%::Define()
 {
     Describe("Subcategory", [this]() { It("TestName", [this]() { }); });
 }

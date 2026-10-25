@@ -1,3 +1,7 @@
 @echo off
 
-call "%~dp0devops_ue\docs\generate_docs.bat"
+if exist "%~dp0devops_ue\docs\generate_docs.bat" (
+    call "%~dp0devops_ue\docs\generate_docs.bat"
+) else (
+    call "%~dp0..\devops_ue\docs\generate_docs.bat"
+)

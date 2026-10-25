@@ -1,3 +1,7 @@
 @echo off
 
-call "%~dp0devops_ue\tests\run_tests.bat"
+if exist "%~dp0devops_ue\tests\run_tests.bat" (
+    call "%~dp0devops_ue\tests\run_tests.bat"
+) else (
+    call "%~dp0..\devops_ue\tests\run_tests.bat"
+)

@@ -4,9 +4,11 @@
 call "%~dp0..\..\devops_data\config.bat"
 
 :begin
-set /p TestClassName= "Enter test class name :"
-if [%TestClassName%]==[] goto:begin
-set /p TestRelativePath= "Enter relative to [Source\%ProjectPureName%] directory (use \ symbol for subdirs):"
+set "TestClassName="
+set /p TestClassName="Enter test class name : "
+if "%TestClassName%"=="" goto:begin
+set "TestRelativePath="
+set /p TestRelativePath="Enter relative to [Source\%ProjectPureName%] directory (use \ symbol for subdirs): "
 
 rem .h / .cpp file names
 set TestCppFileName=%TestClassName%.cpp
@@ -14,7 +16,7 @@ set TestHFileName=%TestClassName%.h
 
 rem full paths to .h / .cpp files to create
 set TestAbsoluteDir=%SourceCodePath%\%ProjectPureName%\%TestRelativePath%
-if [%TestRelativePath%]==[] set TestAbsoluteDir=%SourceCodePath%\%ProjectPureName%
+if "%TestRelativePath%"=="" set TestAbsoluteDir=%SourceCodePath%\%ProjectPureName%
 set TestCppFilePath=%TestAbsoluteDir%\%TestCppFileName%
 set TestHFilePath=%TestAbsoluteDir%\%TestHFileName%
 
@@ -25,11 +27,10 @@ echo %TestCppFilePath%
 echo %TestHFilePath%
 echo ======================================
 echo.
-set /p UserConfirmed= "Confirm? [Y/N or (E)xit] :" 
-if %UserConfirmed% == N goto:begin
-if %UserConfirmed% == n goto:begin
-if %UserConfirmed% == E goto:EOF
-if %UserConfirmed% == e goto:EOF
+set "UserConfirmed="
+set /p UserConfirmed="Confirm? [Y/N or (E)xit] : "
+if /i "%UserConfirmed%"=="N" goto:begin
+if /i "%UserConfirmed%"=="E" goto:EOF
 
 rem create dir
 if not exist "%TestAbsoluteDir%" mkdir "%TestAbsoluteDir%"
@@ -40,15 +41,19 @@ set TestHTemplateFilePath=%ProjectRoot%\devops_ue\tests\templates\Test.h.templat
 
 rem template file vars
 rem path with \
-set TempPath=%ProjectPureName%\%TestRelativePath%\%TestClassName%.h
+if "%TestRelativePath%"=="" (
+    set TempPath=%ProjectPureName%\%TestClassName%.h
+) else (
+    set TempPath=%ProjectPureName%\%TestRelativePath%\%TestClassName%.h
+)
 rem replace \ with / for include string
 set TEST_INCLUDE_FILE="%TempPath:\=/%"
 set "OR=^|"
 set "AND=^&"
 
 rem remove old files if exist
-del /q "%TestCppFilePath%"
-del /q "%TestHFilePath%"
+if exist "%TestCppFilePath%" del /q "%TestCppFilePath%"
+if exist "%TestHFilePath%" del /q "%TestHFilePath%"
 
 rem create actual files
 call :createTemplate "%TestCppTemplateFilePath%" , "%TestCppFilePath%"
@@ -57,7 +62,6 @@ call :createTemplate "%TestHTemplateFilePath%" , "%TestHFilePath%"
 rem clang-format
 call "%~dp0..\misc\format_all_files.bat"
 
-echo %TEST_INCLUDE_FILE_1%
 goto:EOF
 
 rem function to create .h / .cpp from template
@@ -65,10 +69,10 @@ rem function to create .h / .cpp from template
 set TemplateName=%~1
 set FileToWriteIn=%~2
 for /f "usebackq tokens=*" %%a in ("%TemplateName%") do (
-    if %%a == NEW_LINE (
+    if "%%a"=="NEW_LINE" (
         echo.>>"%FileToWriteIn%"
     ) else (
         call echo %%a>>"%FileToWriteIn%"
     )
 )
-
+exit /b

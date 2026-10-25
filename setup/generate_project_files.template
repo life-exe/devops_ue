@@ -1,5 +1,9 @@
 @echo off
 
-call "%~dp0devops_data\config.bat"
-
-"%~dp0devops_ue\misc\generate_project_files.bat" "%EnginePath%" "%VersionSelector%" "%ProjectName%"
+if exist "%~dp0devops_data\config.bat" (
+    call "%~dp0devops_data\config.bat"
+    call "%~dp0devops_ue\misc\generate_project_files.bat" "%EnginePath%" "%VersionSelector%" "%ProjectName%"
+) else (
+    call "%~dp0config.bat"
+    call "%~dp0..\devops_ue\misc\generate_project_files.bat" "%EnginePath%" "%VersionSelector%" "%ProjectName%"
+)

@@ -6,9 +6,9 @@ NEW_LINE
 #include "CoreMinimal.h"
 #include "Misc/AutomationTest.h"
 NEW_LINE
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FTestClassName, "Category.TestName", EAutomationTestFlags::EditorContext %OR% EAutomationTestFlags::ProductFilter %OR% EAutomationTestFlags::HighPriority);
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(F%TestClassName%, "Category.TestName", EAutomationTestFlags::EditorContext %OR% EAutomationTestFlags::ProductFilter %OR% EAutomationTestFlags::HighPriority);
 NEW_LINE
-bool FTestClassName::RunTest(const FString%AND% Parameters)
+bool F%TestClassName%::RunTest(const FString%AND% Parameters)
 {
     return true;
 }
