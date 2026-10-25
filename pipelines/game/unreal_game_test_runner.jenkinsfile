@@ -69,7 +69,7 @@ pipeline {
             }
             steps {
                 bat '''
-                    powershell -Command "(gc '%EDITOR_TARGET_PATH%') -replace '%UNOPTIMIZE_FALSE_LINE%', '%UNOPTIMIZE_TRUE_LINE%' | Out-File  '%EDITOR_TARGET_PATH%'"
+                    powershell -NoProfile -Command "$f = '%EDITOR_TARGET_PATH%'; $t = [IO.File]::ReadAllText($f); $n = $t.Replace('%UNOPTIMIZE_FALSE_LINE%', '%UNOPTIMIZE_TRUE_LINE%'); if ($n -ne $t) { [IO.File]::WriteAllText($f, $n) }"
                 '''
             }
         }
@@ -103,7 +103,7 @@ pipeline {
             }
             steps {
                 bat '''
-                    powershell -Command "(gc '%EDITOR_TARGET_PATH%') -replace '%UNOPTIMIZE_TRUE_LINE%', '%UNOPTIMIZE_FALSE_LINE%' | Out-File  '%EDITOR_TARGET_PATH%'"
+                    powershell -NoProfile -Command "$f = '%EDITOR_TARGET_PATH%'; $t = [IO.File]::ReadAllText($f); $n = $t.Replace('%UNOPTIMIZE_TRUE_LINE%', '%UNOPTIMIZE_FALSE_LINE%'); if ($n -ne $t) { [IO.File]::WriteAllText($f, $n) }"
                 '''
             }
         }

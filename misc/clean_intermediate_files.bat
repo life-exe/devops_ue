@@ -3,12 +3,25 @@
 
 call "%~dp0..\..\devops_data\config.bat"
 
-pushd "%ProjectRoot%"
+if not defined ProjectRoot (
+    echo ProjectRoot is not set, check devops_data\config.bat
+    exit /b 1
+)
+
+pushd "%ProjectRoot%" || exit /b 1
 FOR %%f in (%dirsToRemove%) do (
-    rmdir /s /q %%f
+    if exist "%%f" rmdir /s /q "%%f"
 )
 
 FOR %%f in (%filesToRemove%) do (
-    del /q %%f
+    if exist "%%f" del /q "%%f"
+)
+
+rem plugins with sources only: precompiled plugins can't rebuild their binaries
+FOR /D %%p in ("Plugins\*") do (
+    if exist "%%p\Source" (
+        if exist "%%p\Intermediate" rmdir /s /q "%%p\Intermediate"
+        if exist "%%p\Binaries" rmdir /s /q "%%p\Binaries"
+    )
 )
 popd

@@ -7,7 +7,7 @@ call "%~dp0..\..\devops_data\config.bat"
 set Before=public bool UnoptimizedCode = false;
 set After=public bool UnoptimizedCode = true;
 set File=%SourceCodePath%\%ProjectPureName%Editor.Target.cs
-powershell -Command "(gc '%File%') -replace '%Before%', '%After%' | Out-File  '%File%'"
+call :REPLACEINFILE "%File%" "%Before%" "%After%"
 
 rem build sources
 call "%RunUATPath%" BuildCookRun ^
@@ -15,6 +15,14 @@ call "%RunUATPath%" BuildCookRun ^
 -platform="%Platform%" ^
 -clientconfig="%Configuration%" ^
 -build -cook -ubtargs="-UnoptimizedCode"
+set BuildResult=%errorlevel%
+
+rem restore target file right after the build
+call :REPLACEINFILE "%File%" "%After%" "%Before%"
+if not "%BuildResult%"=="0" (
+    echo Build failed with code %BuildResult%
+    exit /b %BuildResult%
+)
 
 rem run tests
 set TestRunner="%EditorPath%" "%ProjectPath%" -ExecCmds="Automation RunTests %TestNames%;Quit" ^
@@ -38,7 +46,6 @@ set ExludedSources=%RETVAL%
 
 rem clean obsolete artifacts
 del /q LastCoverageResults.log
-powershell -Command "(gc '%File%') -replace '%After%', '%Before%' | Out-File  '%File%'"
 
 rem copy test artifacts
 set TestsDir=%~dp0
@@ -60,4 +67,9 @@ goto:EOF
 
 :NORMALIZEPATH
   SET RETVAL=%~f1
+  EXIT /B
+
+:: Replaces text in a file only if it is there. Keeps UTF-8 (Out-File in Windows PowerShell writes UTF-16).
+:REPLACEINFILE
+  powershell -NoProfile -Command "$f = '%~1'; if (Test-Path -LiteralPath $f) { $t = [IO.File]::ReadAllText($f); $n = $t.Replace('%~2', '%~3'); if ($n -ne $t) { [IO.File]::WriteAllText($f, $n) } }"
   EXIT /B
