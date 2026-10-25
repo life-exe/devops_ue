@@ -3,7 +3,7 @@
 ![alt text](https://github.com/life-exe/devops_ue/blob/master/assets/logo.png)
 
 This lightweight repository is a part of [Unreal Engine Automation and Testing course](https://youtube.com/playlist?list=PL2XQZYeh2Hh-PdSglBEm520Eboph1GcA2).
-You can use it with any Unreal Engine project to speed to up your development process.
+You can use it with any Unreal Engine project to speed up your development process.
 
 The course has its [own wiki](https://lifeexe-art.gitbook.io/unreal-automation).
 
@@ -11,14 +11,14 @@ Each subfolder of the current repo has an additional readme page for further inf
 
 ## Features
 
-* UE source automatization (clone, setup, build, custom installed build)
-* UE projects automatization (build, cook, package)
+* UE source automation (clone, setup, build, custom installed build)
+* UE projects automation (build, cook, package)
 * Game, Client, Server (dedicated, listen) builds
 * Code format with .clang-format
 * Test automation, code coverage
 * Documentation generation with doxygen
 * Jenkins' pipelines
-* GitHub webhooks, slack notifications, scheldures, ngrok etc.
+* GitHub webhooks, slack notifications, schedules, ngrok etc.
 
 ## How To Setup
 

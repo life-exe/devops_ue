@@ -2,7 +2,7 @@
 
 ## Requirements
 * [Doxygen](https://doxygen.nl)
-* [Pyhton](https://doxygen.nl)
+* [Python](https://www.python.org)
 * Current folder has 3 submodules. You need to launch a command:
 ```
 git submodule update --init --recursive --remote
