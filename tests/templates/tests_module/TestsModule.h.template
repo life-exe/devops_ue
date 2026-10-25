@@ -1,0 +1,5 @@
+%COPYRIGHT_LINE%
+NEW_LINE
+#pragma once
+NEW_LINE
+#include "CoreMinimal.h"

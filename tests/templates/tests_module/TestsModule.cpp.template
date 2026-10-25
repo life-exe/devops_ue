@@ -1,0 +1,6 @@
+%COPYRIGHT_LINE%
+NEW_LINE
+#include "%ModuleHFileName%"
+#include "Modules/ModuleManager.h"
+NEW_LINE
+IMPLEMENT_MODULE(FDefaultGameModuleImpl, %NewModuleName%);

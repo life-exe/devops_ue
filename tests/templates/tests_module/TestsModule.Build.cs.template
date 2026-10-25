@@ -1,0 +1,30 @@
+%COPYRIGHT_LINE%
+NEW_LINE
+using UnrealBuildTool;
+NEW_LINE
+public class %NewModuleName% : ModuleRules
+{
+    public %NewModuleName%(ReadOnlyTargetRules Target) : base(Target)
+    {
+        PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
+NEW_LINE
+        PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "%ProjectPureName%" });
+NEW_LINE
+        PublicDependencyModuleNames.AddRange(new string[] { "Json", "JsonUtilities", "UMG" });
+NEW_LINE
+        if (Target.Configuration != UnrealTargetConfiguration.Shipping)
+        {
+            PublicDependencyModuleNames.Add("FunctionalTesting");
+        }
+NEW_LINE
+        PrivateDependencyModuleNames.AddRange(new string[] { });
+NEW_LINE
+        // Uncomment if you are using Slate UI
+        // PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
+NEW_LINE
+        // Uncomment if you are using online features
+        // PrivateDependencyModuleNames.Add("OnlineSubsystem");
+NEW_LINE
+        // To include OnlineSubsystemSteam, add it to the plugins section in your uproject file with the Enabled attribute set to true
+    }
+}

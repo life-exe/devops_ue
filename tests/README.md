@@ -8,6 +8,7 @@
 ## Test files creation
 * **create_spec_file.bat** helps to create a spec file for testing
 * **create_test_file.bat** helps to create a legacy test file
+* **assist_tests_module_creation.bat** facilitates the creation of a UE module for testing by creating .Build.cs, .h and .cpp files
 
 ## Setup and run
 * **setup_tests.bat** installs all requirement files to **data** for local test running (**data** folder added in **.gitignore** file of repository)
