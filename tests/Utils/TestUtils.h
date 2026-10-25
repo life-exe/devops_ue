@@ -134,10 +134,10 @@ template <class ObjectClass, class PropertyClass>
 PropertyClass GetPropertyValueByName(ObjectClass* Obj, const FString& PropName)
 {
     if (!Obj) return PropertyClass();
-    for (TFieldIterator<FProperty> PropIt(Obj->StaticClass()); PropIt; ++PropIt)
+    for (TFieldIterator<FProperty> PropIt(Obj->GetClass()); PropIt; ++PropIt)
     {
         const FProperty* Property = *PropIt;
-        if (Property && Property->GetName().Equals(PropName))
+        if (Property && Property->GetName().Equals(PropName) && Property->GetSize() == sizeof(PropertyClass))
         {
             return *Property->ContainerPtrToValuePtr<PropertyClass>(Obj);
         }

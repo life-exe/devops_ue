@@ -14,7 +14,7 @@ struct FAxisData
     FName Name;
 
     UPROPERTY()
-    float Value;
+    float Value{0.0f};
 };
 
 USTRUCT()
@@ -29,7 +29,7 @@ struct FActionData
     FKey Key;
 
     UPROPERTY()
-    bool State;
+    bool State{false};
 };
 
 USTRUCT()

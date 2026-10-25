@@ -11,6 +11,8 @@ namespace Test
 {
 UWorld* GetTestGameWorld()
 {
+    if (!GEngine) return nullptr;
+
     const TIndirectArray<FWorldContext>& WorldContexts = GEngine->GetWorldContexts();
     for (const FWorldContext& Context : WorldContexts)
     {
@@ -29,7 +31,7 @@ void CallFuncByNameWithParams(UObject* Object, const FString& FuncName, const TA
 
     // Command pattern: "FunctionName Param1 Param2 Param3"
     FString Command = FuncName;
-    for (const auto Param : Params)
+    for (const auto& Param : Params)
     {
         Command.Append(" ").Append(Param);
     }
@@ -186,6 +188,8 @@ void FTakeUIScreenshotLatentCommand::OnScreenshotTakenAndCompared()
 
 void FTakeUIScreenshotLatentCommand::SetBufferVisualization(const FName& VisualizeBuffer)
 {
+    if (!GEngine) return;
+
     if (UGameViewportClient* ViewportClient = GEngine->GameViewport)
     {
         static IConsoleVariable* ICVar =
@@ -204,6 +208,8 @@ void FTakeUIScreenshotLatentCommand::SetBufferVisualization(const FName& Visuali
 
 void SpecCloseLevel(UWorld* World)
 {
+    if (!World) return;
+
     if (APlayerController* PC = World->GetFirstPlayerController())
     {
         PC->ConsoleCommand(TEXT("Exit"), true);
