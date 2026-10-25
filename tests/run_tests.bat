@@ -39,11 +39,13 @@ call :NORMALIZEPATH "%SourceCodePath%"
 set Sources=%RETVAL%
 
 if not defined ExcludedPathForTestReport set ExcludedPathForTestReport=%ExludedPathForTestReport%
-call :NORMALIZEPATH "%ExcludedPathForTestReport%"
-set ExcludedSources=%RETVAL%
+set "ExcludedSourcesArgs="
+for %%i in (%ExcludedPathForTestReport%) do (
+    call :ADD_EXCLUDED_SOURCE "%%~i"
+)
 
 "%OpenCPPCoveragePath%" --modules="%Module%" --sources="%Sources%" ^
---excluded_sources="%ExcludedSources%" --export_type="%ExportType%" -v -- %TestRunner%
+%ExcludedSourcesArgs% --export_type="%ExportType%" -v -- %TestRunner%
 
 rem clean obsolete artifacts
 if exist LastCoverageResults.log del /q LastCoverageResults.log
@@ -68,6 +70,15 @@ goto:EOF
 
 :NORMALIZEPATH
   SET RETVAL=%~f1
+  EXIT /B
+
+:ADD_EXCLUDED_SOURCE
+  call :NORMALIZEPATH "%~1"
+  if defined ExcludedSourcesArgs (
+      set ExcludedSourcesArgs=%ExcludedSourcesArgs% --excluded_sources="%RETVAL%"
+  ) else (
+      set ExcludedSourcesArgs=--excluded_sources="%RETVAL%"
+  )
   EXIT /B
 
 :: Replaces text in a file only if it is there. Keeps UTF-8 (Out-File in Windows PowerShell writes UTF-16).

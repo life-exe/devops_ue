@@ -18,3 +18,17 @@ def loadEnvironmentVariables(path){
         env."${key}" = "${value}"
     }
 }
+
+def FormatExcludedPaths(paths) {
+    def prefix = "--excluded_sources="
+    def pathList = paths.split(";")
+    def result = []
+
+    for (path in pathList) {
+        if (path?.trim()) {
+            result.add("${prefix}\"${path.trim()}\"")
+        }
+    }
+
+    env.EXCLUDED_SOURCES = result.join(" ")
+}

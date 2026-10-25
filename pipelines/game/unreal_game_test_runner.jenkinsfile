@@ -5,15 +5,30 @@ def ColorFromBuildResult(result){
     return '#FF0000'
 }
 
+def FormatExcludedPaths(paths) {
+    def prefix = "--excluded_sources="
+    def pathList = paths.split(";")
+    def result = []
+
+    for (path in pathList) {
+        if (path?.trim()) {
+            result.add("${prefix}\"${path.trim()}\"")
+        }
+    }
+
+    env.EXCLUDED_SOURCES = result.join(" ")
+}
+
 pipeline {
     agent {
         node {
-            label "unreal_test_runner_label"
+            label "${env.TEST_RUNNER_LABEL ?: 'unreal_test_runner_label'}"
             customWorkspace "$BUILD_DIR"
         }
     }
 
     environment {/*
+        TEST_RUNNER_LABEL = 'unreal_test_runner_label'
         BUILD_DIR = 'c:\\JenkinsJobs\\TPS-test-runner-pipeline'
         GIT_URL_GAME = 'https://github.com/life-exe/UnrealTPSGame'
         GIT_CREDENTIALS_GAME = 'life-exe-github'
@@ -86,12 +101,15 @@ pipeline {
         }
         stage('Test') {
             steps {
+                script {
+                    FormatExcludedPaths(EXCLUDED_SOURCES)
+                }
                 bat '''
                     set TEST_RUNNER="%EDITOR_PATH%" "%PROJECT_PATH%" -ExecCmds="Automation %TEST_EXTRA_CMD%RunTests %TEST_NAMES%;Quit" ^
                     -ReportExportPath="%TEST_OUTPUT_PATH%" %EDITOR_FLAGS%
 
                     "%OPEN_CPP_COVERAGE_PATH%" --modules="%BUILD_DIR%" --sources="%SOURCE_CODE_PATH%" ^
-                    --excluded_sources="%EXCLUDED_SOURCES%" --export_type="%CODE_COVERAGE_EXPORT_TYPE%" -- %TEST_RUNNER%
+                    %EXCLUDED_SOURCES% --export_type="%CODE_COVERAGE_EXPORT_TYPE%" -- %TEST_RUNNER%
 
                     if not "%errorlevel%"=="0" echo WARNING: Some tests failed, error code: %errorlevel% & exit /b 0
                 '''
