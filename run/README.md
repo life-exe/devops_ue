@@ -5,3 +5,4 @@ Before using the scripts from the current folder, you must first pack the client
 * **run_server.bat** - runs dedicated server executable from **Build** folder
 * **run_listen_server.bat** - runs listen server executable from **Build** folder
 * **run_2_clients.bat** - runs two client executables from **Build** folder
+* **run_wasm.bat** - starts local web server with COOP/COEP isolation and opens browser

@@ -58,6 +58,10 @@ setup.bat
 |    +- clean_intermediate_files.bat
 |    +- run_tests.bat
 |    +- generate_docs.bat
+|    +- package_game.bat
+|    +- package_wasm.bat
+|    +- run_wasm.bat
+|    +- setup_emsdk.bat
 |    +- .clang-format
 |    +- .gitignore
 |    +- Doxyfile
@@ -93,6 +97,9 @@ PROJECT_NAME           = "My Project"
 +- clean_intermediate_files.bat
 +- run_tests.bat
 +- generate_docs.bat
++- package_wasm.bat
++- run_wasm.bat
++- setup_emsdk.bat
 +- .clang-format
 +- .gitignore
 +- LICENSE.md
@@ -101,6 +108,49 @@ PROJECT_NAME           = "My Project"
 
 * Now you can quickly generate project files, format all source files with **.clang-format**, clean intermediates, run tests and docs generation
 * More useful scripts can be found inside other folders of **devops_ue**
+
+## Web (Wasm + WebGPU) Setup from Scratch
+
+Starting with **Unreal Engine 5.9**, official web deployment is supported via the **Wasm** target (WebAssembly 64-bit with threads + WebGPU).
+
+Follow these steps to set up, build, and run a web project from scratch:
+
+### 1. Prerequisites
+* **Unreal Engine 5.9+** (with Wasm platform libraries included).
+* **C++ Project**: Pure Blueprint-only projects are not supported for Wasm in Preview. If your project is Blueprint-only, add at least one C++ class via **Tools > New C++ Class** in the editor.
+* **[Emscripten SDK 6.0.10](https://github.com/emscripten-core/emsdk)**: Strictly required by the engine. Run:
+  ```bat
+  devops_data\setup_emsdk.bat
+  ```
+  *(or `devops_ue\setup\setup_emsdk.bat`)* — it clones `emsdk`, activates version `6.0.10`, and registers the `WASM_EMSDK_ROOT` environment variable.
+
+### 2. Project Configuration
+* **Maps to Cook**: Ensure all game maps and the menu map are registered in `Config/DefaultGame.ini`:
+  ```ini
+  [/Script/UnrealEd.ProjectPackagingSettings]
+  +MapsToCook=(FilePath="/Game/Maps/Map1")
+  +MapsToCook=(FilePath="/Game/Maps/Map2")
+  ```
+* **Default Game Map**: Set your entry map in `Config/DefaultEngine.ini`:
+  ```ini
+  [/Script/EngineSettings.GameMapsSettings]
+  GameDefaultMap=/Game/Maps/Map1.Map1
+  ```
+* **Engine Path**: In your `devops_data\config.bat`, ensure `EnginePath` points to UE 5.9+.
+
+### 3. Packaging
+Run the packaging script (specify `Shipping` for release or `Development` for debugging):
+```bat
+devops_data\package_wasm.bat Shipping
+```
+This builds C++ with Emscripten, cooks assets/shaders for WebGPU, packages IoStore containers, and compresses artifacts using Brotli into `%ArchivePath%\Wasm`.
+
+### 4. Running & Testing
+WebAssembly modules with multithreading and WebGPU require specific Cross-Origin isolation headers (`COOP`/`COEP`) and cannot be opened via `file:///`. Use the runner script:
+```bat
+devops_data\run_wasm.bat
+```
+*(or run the generated `Build\Play_<ProjectName>.bat`)*. It starts a local server with all required headers and opens the game in your default browser.
 
 ## Resources
 

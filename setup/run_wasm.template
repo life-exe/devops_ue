@@ -1,0 +1,7 @@
+@echo off
+
+if exist "%~dp0devops_ue\run\run_wasm.bat" (
+    call "%~dp0devops_ue\run\run_wasm.bat" %*
+) else (
+    call "%~dp0..\devops_ue\run\run_wasm.bat" %*
+)

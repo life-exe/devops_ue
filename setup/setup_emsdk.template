@@ -1,0 +1,7 @@
+@echo off
+
+if exist "%~dp0devops_ue\setup\setup_emsdk.bat" (
+    call "%~dp0devops_ue\setup\setup_emsdk.bat" %*
+) else (
+    call "%~dp0..\devops_ue\setup\setup_emsdk.bat" %*
+)
