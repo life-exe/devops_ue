@@ -33,7 +33,35 @@ $Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 $Warnings = New-Object System.Collections.ArrayList
 $Status = [ordered]@{}
 
-function Write-Step([string]$Text) { Write-Host ''; Write-Host "==> $Text" -ForegroundColor Cyan }
+# --- step timing: every Write-Step starts a timed step, Write-Timing prints the table (also on failure) ---
+$ScriptTimer = [Diagnostics.Stopwatch]::StartNew()
+$StepTimes = New-Object System.Collections.ArrayList
+$script:CurrentStep = $null
+function Complete-Step {
+    if ($script:CurrentStep) {
+        [void]$StepTimes.Add([pscustomobject]@{ Step = $script:CurrentStep.Name; Time = $ScriptTimer.Elapsed - $script:CurrentStep.Start })
+        $script:CurrentStep = $null
+    }
+}
+function Write-Step([string]$Text) {
+    Complete-Step
+    $script:CurrentStep = [pscustomobject]@{ Name = $Text; Start = $ScriptTimer.Elapsed }
+    Write-Host ''; Write-Host "==> $Text" -ForegroundColor Cyan
+}
+# final header: closes the last step without starting a new timed one
+function Write-FinalStep([string]$Text) { Complete-Step; Write-Host ''; Write-Host "==> $Text" -ForegroundColor Cyan }
+function Format-Duration([TimeSpan]$T) {
+    if ($T.TotalHours -ge 1) { return '{0}h {1:D2}m {2:D2}s' -f [int][math]::Floor($T.TotalHours), $T.Minutes, $T.Seconds }
+    if ($T.TotalMinutes -ge 1) { return '{0}m {1:D2}s' -f $T.Minutes, $T.Seconds }
+    return '{0:N1}s' -f $T.TotalSeconds
+}
+function Write-Timing([string]$Result = 'total') {
+    Complete-Step
+    Write-Host ''; Write-Host 'Time:' -ForegroundColor Cyan
+    foreach ($s in $StepTimes) { Write-Host ('  {0,-10} {1}' -f (Format-Duration $s.Time), $s.Step) }
+    Write-Host ('  {0,-10} {1}' -f (Format-Duration $ScriptTimer.Elapsed), $Result) -ForegroundColor Green
+}
+trap { Write-Timing 'total (FAILED)'; break }
 function Add-Warning([string]$Text) { [void]$Warnings.Add($Text); Write-Host "WARNING: $Text" -ForegroundColor Yellow }
 function Read-Text([string]$Path) { [IO.File]::ReadAllText($Path) }
 function Write-Text([string]$Path, [string]$Text) {
@@ -409,7 +437,7 @@ if ($Package -and -not $CheckOnly) {
 }
 
 # ---------------------------------------------------------------------------------------------
-Write-Step 'Summary'
+Write-FinalStep 'Summary'
 foreach ($k in $Status.Keys) { Write-Host ("  {0,-12} {1}" -f $k, $Status[$k]) }
 if ($Warnings.Count -gt 0) {
     Write-Host 'Warnings:' -ForegroundColor Yellow
@@ -418,3 +446,5 @@ if ($Warnings.Count -gt 0) {
 if ([Environment]::GetEnvironmentVariable('WASM_EMSDK_ROOT', 'User') -and -not $CheckOnly) {
     Write-Host 'Restart the editor and open terminals so they pick up WASM_EMSDK_ROOT.'
 }
+
+Write-Timing

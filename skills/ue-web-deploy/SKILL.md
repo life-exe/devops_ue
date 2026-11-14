@@ -69,5 +69,6 @@ What happens:
 ## 5. Report
 
 Page/URL, what was uploaded (files, size), warnings, and the manual itch.io settings if the target was itch.
+**Time**: the total from the script's `Time:` block and how long the upload itself took.
 If something fails, show the tool's error; the usual causes are a missing login, a Development build, or host limits.
 More hosting details: `<Engine>\Engine\Platforms\Wasm\Docs\Deploy.md`.

@@ -99,6 +99,7 @@ What the script does:
 ## 3. Report
 
 * Path to the `.uproject`, what was created, and every line from the script's `Warnings:` block.
+* **Time**: the total from the script's `Time:` block and the longest steps (e.g. build, MainLevel creation, packaging).
 * If MainLevel creation failed: tell the user to create it in the editor (File > New Level > Empty Level,
   save as `/Game/Maps/MainLevel`) - configs already point to it. Logs: `<project>\Saved\Logs`.
 * If the C++ build failed: show the relevant compiler errors from the output.
