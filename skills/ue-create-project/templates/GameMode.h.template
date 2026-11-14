@@ -1,0 +1,16 @@
+{{COPYRIGHT_LINE}}
+
+#pragma once
+
+#include "CoreMinimal.h"
+#include "GameFramework/GameModeBase.h"
+#include "{{PROJECT_NAME}}GameMode.generated.h"
+
+UCLASS()
+class {{API_MACRO}} A{{PROJECT_NAME}}GameMode : public AGameModeBase
+{
+    GENERATED_BODY()
+
+public:
+    A{{PROJECT_NAME}}GameMode();
+};

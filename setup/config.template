@@ -20,7 +20,7 @@ rem Project params
 set ProjectRoot=%~dp0..
 :: Pure name of your project. Example: name of your project file is TPS.uproject, then ProjectPureName=TPS
 for %%I in ("%ProjectRoot%\*.uproject") do set "ProjectPureName=%%~nI"
-if not defined ProjectPureName set ProjectPureName=<ProjectName>
+if not defined ProjectPureName set "ProjectPureName=<ProjectName>"
 set ProjectName=%ProjectPureName%.uproject
 set ProjectPath=%ProjectRoot%\%ProjectName%
 set SourceCodePath=%ProjectRoot%\Source

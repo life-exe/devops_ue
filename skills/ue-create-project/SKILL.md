@@ -1,0 +1,85 @@
+---
+name: ue-create-project
+description: Create a new Unreal Engine 5 project (C++ or Blueprint) wired up with devops_ue - asks for the project name, project type, copyright, engine version (auto-detected) and start map (empty MainLevel or an Unreal template), then creates the project, runs devops_ue setup, fills configs, copies .clang-format/.gitignore/bat scripts/skills/AGENTS.md, creates A<Name>GameMode for C++ projects and optionally packages the game. Use when asked to create/scaffold/start a new Unreal project.
+---
+
+# Create an Unreal Engine project
+
+All heavy lifting is done by `scripts/create_project.ps1`; your job is to collect the answers, run it and report.
+Scripts live next to this file: `<skill dir>/scripts/`. Run them with
+`powershell -NoProfile -ExecutionPolicy Bypass -File <script> ...`.
+
+Talk to the user in their language.
+
+## 1. Collect answers
+
+Ask in this order. Use `AskUserQuestion` for choices; free text (project name) is asked as a normal message.
+
+1. **Project name** - ask the user to type it. Must match `^[A-Za-z][A-Za-z0-9_]{0,19}$`
+   (starts with a letter, letters/digits/underscore, max 20 chars). Re-ask if invalid.
+2. **Location** - parent folder for the project (`<parent>\<Name>`). Offer the parent of the current
+   project folder and the current folder as options. The target folder must not exist or must be empty.
+3. **Project type** - `C++` or `Blueprint`.
+4. **Copyright** - offer `Copyright <Name>. All Rights Reserved.` and `Copyright <Company>. All Rights Reserved.`
+   (ask for the company via "Other"). The value is stored without `//`; the script adds `// ` for source files.
+5. **Engine version** - run
+   `ue_info.ps1 -Engines`
+   It prints JSON (`Version`, `Path`, `Association`, `Installed`, `EditorBuilt`, `Source`), newest first.
+   * Show detected engines as options (`5.9.0 - C:\Program Files\Epic Games\UE_5.9`), up to 4; mention others in text.
+   * None found -> ask for the engine root path (folder that contains `Engine\`).
+   * Warn if `EditorBuilt` is false (source build that is not compiled yet).
+6. **Start map**
+   * `Empty MainLevel` - blank project, empty level `/Game/Maps/MainLevel` set as game + editor startup map.
+   * `Unreal template` - then run
+     `ue_info.ps1 -Templates -EnginePath "<path>" -Type Cpp|Blueprint`
+     and ask which template (show `DisplayName`, pass `Name` to the script). Prefer `Category = Games`
+     ones (Third Person, First Person, Top Down, Vehicle, ...). Template variants are not supported.
+7. **Packaging** - package the game right after creation (`Development`, Win64)? Default: no, it takes long.
+8. **devops_ue** - default: added as a git submodule (`git submodule add <origin url of this devops_ue>`).
+   Only ask if the user mentioned they are offline / want a plain copy -> `-DevopsMode Copy`.
+
+Batch questions 3-7 into one or two `AskUserQuestion` calls where possible. Before running, show a short
+summary of all answers and get a confirmation.
+
+## 2. Create the project
+
+```
+powershell -NoProfile -ExecutionPolicy Bypass -File "<skill dir>/scripts/create_project.ps1" `
+  -ProjectName "<Name>" -ParentDir "<parent>" -Type Cpp|Blueprint `
+  -EnginePath "<engine path>" -EngineAssociation "<Association from ue_info>" `
+  -Template Empty|<TP_TemplateName> -Copyright "<copyright>" [-CompanyName "<company>"] [-Package]
+```
+
+* Pass `-DevopsSource "<path>\devops_ue"` if the script can't find devops_ue itself (it looks next to the
+  skill, in `<project>\devops_ue` and in `devops_source.txt` written by `install_skills.bat`).
+* C++ build + first editor launch (shader compilation) take many minutes: run the command in the
+  background (`run_in_background`) and wait for the notification instead of polling.
+* `-SkipBuild` / `-SkipMainLevel` exist for debugging; don't use them by default.
+
+What the script does:
+
+1. Copies the engine template (`TP_Blank`/`TP_BlankBP` for Empty) following its `TemplateDefs.ini`
+   (ignored files/folders, renames `TP_*` -> `<Name>` in paths and in `.cpp/.h/.ini/.cs`, shared content packs).
+2. Writes `<Name>.uproject` with the engine association.
+3. Config: `DefaultGame.ini` - ProjectID, ProjectName, CopyrightNotice, CompanyName, MapsToCook;
+   `DefaultEngine.ini` - GameDefaultMap/EditorStartupMap (MainLevel), GlobalDefaultGameMode
+   (`/Script/<Name>.<Name>GameMode` for empty C++), ActiveGameNameRedirects/ActiveClassRedirects for C++ templates.
+4. C++: creates `Source/<Name>/<Name>GameMode.h/.cpp` (`A<Name>GameMode : AGameModeBase`) unless the template
+   already has it, and puts `// <copyright>` as the first line of every `.h/.cpp/.cs`.
+5. `git init`, adds `devops_ue` (submodule or copy), runs `devops_ue\setup.bat`, sets `EnginePath` and
+   `COPYRIGHT_LINE` in `devops_data\config.bat`.
+6. Copies to the root: `.clang-format`, `.gitignore`, `LICENSE.md`, `README.md`, `generate_project_files.bat`,
+   `clean_intermediate_files.bat`, `package_game.bat` (+ `format_all_files.bat`, `run_tests.bat` for C++);
+   devops skills -> `.claude\skills\`; `AGENTS.md` (from `devops_ue\setup\AGENTS.md.template`) + `CLAUDE.md` importing it.
+7. C++: generates project files, runs clang-format, builds `<Name>Editor Win64 Development`.
+8. Empty map: creates `/Game/Maps/MainLevel` via `UnrealEditor-Cmd -run=pythonscript` (`create_main_level.py`).
+9. `-Package`: runs `package_game.bat` (output in `<project>\Build`).
+
+## 3. Report
+
+* Path to the `.uproject`, what was created, and every line from the script's `Warnings:` block.
+* If MainLevel creation failed: tell the user to create it in the editor (File > New Level > Empty Level,
+  save as `/Game/Maps/MainLevel`) - configs already point to it. Logs: `<project>\Saved\Logs`.
+* If the C++ build failed: show the relevant compiler errors from the output.
+* Nothing is committed - suggest reviewing and making the first commit (`git add . && git commit`).
+  Mention `devops_data\config.bat` contains local paths (commit it only for solo projects).

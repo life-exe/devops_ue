@@ -1,0 +1,5 @@
+{{COPYRIGHT_LINE}}
+
+#include "{{PROJECT_NAME}}GameMode.h"
+
+A{{PROJECT_NAME}}GameMode::A{{PROJECT_NAME}}GameMode() {}

@@ -1,0 +1,53 @@
+# {{PROJECT_NAME}}
+
+Instructions for AI coding agents (Claude Code, Codex, Cursor, ...) working in this repository.
+
+## Project
+
+* Unreal Engine **{{ENGINE_VERSION}}**, **{{PROJECT_TYPE}}** project
+* Project file: `{{PROJECT_NAME}}.uproject`
+* Startup map: `{{MAIN_MAP}}`
+* Game module: `Source/{{PROJECT_NAME}}` (C++ projects), base game mode `A{{PROJECT_NAME}}GameMode`
+
+## Repository layout
+
+```
++- Config/             engine/game ini files (DefaultEngine.ini, DefaultGame.ini, ...)
++- Content/            assets (.uasset/.umap are binary - never edit them as text)
++- Source/             C++ code
++- devops_ue/          git submodule with automation scripts (do not modify from this repo)
++- devops_data/        local devops config: config.bat (EnginePath, COPYRIGHT_LINE, ...)
++- .claude/skills/     devops skills for Claude Code
++- *.bat               shortcuts to devops_ue scripts
+```
+
+## Common tasks
+
+| Task | Command |
+|------|---------|
+| Generate IDE project files | `generate_project_files.bat` |
+| Format all C++ sources | `format_all_files.bat` (uses `.clang-format`) |
+| Clean Intermediate/Binaries/Saved/... | `clean_intermediate_files.bat` |
+| Run automation tests | `run_tests.bat` |
+| Package the game | `package_game.bat` (output: `Build/`) |
+| Client/Server targets | `devops_ue\targets\create_client_target.bat`, `create_server_target.bat` |
+| New test / spec file | `devops_ue\tests\create_test_file.bat`, `create_spec_file.bat` |
+
+All scripts read paths from `devops_data\config.bat`.
+
+## Code conventions
+
+* Every `.h`, `.cpp`, `.cs` file starts with the copyright line:
+  ```
+  {{COPYRIGHT_LINE}}
+  ```
+* Format code with `.clang-format` (Allman braces, 4 spaces, 140 columns) before committing.
+* Unreal naming: `A` actors, `U` UObjects/components, `F` structs, `E` enums, `I` interfaces, `b` prefix for bools.
+* Use `{{PROJECT_NAME}}_API` for exported classes; keep headers minimal and prefer forward declarations.
+* After adding/removing C++ files run `generate_project_files.bat`.
+
+## Do not
+
+* Do not commit `Binaries/`, `Intermediate/`, `Saved/`, `DerivedDataCache/`, `Build/`.
+* Do not edit files inside `devops_ue/` - change them upstream in the devops_ue repository.
+* Do not hand-edit binary assets (`.uasset`, `.umap`).

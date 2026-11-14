@@ -1,9 +1,11 @@
 @echo off
 
-if exist "%~dp0devops_data\config.bat" (
-    call "%~dp0devops_data\config.bat"
-    call "%~dp0devops_ue\misc\generate_project_files.bat" "%EnginePath%" "%VersionSelector%" "%ProjectName%"
-) else (
-    call "%~dp0config.bat"
-    call "%~dp0..\devops_ue\misc\generate_project_files.bat" "%EnginePath%" "%VersionSelector%" "%ProjectName%"
-)
+rem works both from the project root and from devops_data
+rem (no parenthesized block: %vars% inside it would be expanded before config.bat is called)
+set "DevopsDataDir=%~dp0devops_data"
+set "DevopsUeDir=%~dp0devops_ue"
+if not exist "%DevopsDataDir%\config.bat" set "DevopsDataDir=%~dp0."
+if not exist "%DevopsUeDir%\misc" set "DevopsUeDir=%~dp0..\devops_ue"
+
+call "%DevopsDataDir%\config.bat"
+call "%DevopsUeDir%\misc\generate_project_files.bat" "%EnginePath%" "%VersionSelector%" "%ProjectName%"

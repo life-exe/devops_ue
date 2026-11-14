@@ -14,7 +14,8 @@ if exist "%TARGET_DIR%\emsdk.bat" (
 ) else (
     echo Cloning emsdk to %TARGET_DIR%...
     git clone https://github.com/emscripten-core/emsdk.git "%TARGET_DIR%"
-    if %ERRORLEVEL% neq 0 (
+    rem "if errorlevel" is evaluated at run time, %ERRORLEVEL% inside ( ) would be expanded before git runs
+    if errorlevel 1 (
         echo [ERROR] Failed to clone emsdk!
         exit /b 1
     )
