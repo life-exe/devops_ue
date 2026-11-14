@@ -5,10 +5,16 @@
 #   create_project.ps1 -ProjectName MyGame -ParentDir C:\Projects -Type Cpp `
 #       -EnginePath "C:\Program Files\Epic Games\UE_5.9" -Template Empty `
 #       -Copyright "Copyright MyCompany. All Rights Reserved."
+#
+# In place (folder prepared by hand: git init + git submodule add .../devops_ue):
+#   create_project.ps1 -ProjectName MyGame -ProjectDir C:\Projects\MyGame ...
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][string]$ProjectName,
-    [Parameter(Mandatory)][string]$ParentDir,
+    # creates <ParentDir>\<ProjectName>
+    [string]$ParentDir = '',
+    # or the exact project folder; may already contain only .git, .gitmodules and devops_ue
+    [string]$ProjectDir = '',
     [Parameter(Mandatory)][ValidateSet('Cpp', 'Blueprint')][string]$Type,
     [Parameter(Mandatory)][string]$EnginePath,
     # 'Empty' = blank project + empty /Game/Maps/MainLevel, otherwise an engine template folder name (TP_ThirdPerson, TP_TopDownBP, ...)
@@ -139,18 +145,37 @@ $engineInfo = Get-UnrealEngineInfo -Path $EnginePath
 if (-not $engineInfo) { throw "Not an Unreal Engine 5 folder: $EnginePath" }
 if (-not $EngineAssociation) { $EngineAssociation = Get-EngineAssociation -EnginePath $EnginePath }
 
+if ($ProjectDir) {
+    if (-not (Test-Path -LiteralPath $ProjectDir)) { New-Item -ItemType Directory -Force -Path $ProjectDir | Out-Null }
+    $ProjectRoot = (Resolve-Path -LiteralPath $ProjectDir).Path.TrimEnd('\')
+}
+elseif ($ParentDir) {
+    if (-not (Test-Path -LiteralPath $ParentDir)) { New-Item -ItemType Directory -Force -Path $ParentDir | Out-Null }
+    $ProjectRoot = Join-Path (Resolve-Path -LiteralPath $ParentDir).Path $ProjectName
+}
+else { throw 'Pass -ProjectDir <project folder> or -ParentDir <folder for <ProjectName>>.' }
+
+# a folder prepared by hand may already hold the git repo and the devops_ue submodule - nothing else
+$allowedExisting = @('.git', '.gitmodules', 'devops_ue')
+$existingItems = @()
+if (Test-Path -LiteralPath $ProjectRoot) { $existingItems = @(Get-ChildItem -LiteralPath $ProjectRoot -Force) }
+$blocking = @($existingItems | Where-Object { $allowedExisting -notcontains $_.Name } | ForEach-Object { $_.Name })
+if ($blocking.Count -gt 0) {
+    throw "Target folder is not empty: $ProjectRoot (only .git, .gitmodules and devops_ue may exist; found: $($blocking -join ', '))"
+}
+$existingDevops = Join-Path $ProjectRoot 'devops_ue'
+$useExistingDevops = Test-Path -LiteralPath (Join-Path $existingDevops 'setup.bat')
+if ((Test-Path -LiteralPath $existingDevops) -and -not $useExistingDevops) {
+    throw "$existingDevops is empty: run 'git submodule update --init --recursive' in $ProjectRoot"
+}
+
 if (-not $DevopsSource) { $DevopsSource = Find-DevopsSource }
+if (-not $DevopsSource -and $useExistingDevops) { $DevopsSource = $existingDevops }
 if (-not $DevopsSource -or -not (Test-Path -LiteralPath (Join-Path $DevopsSource 'setup.bat'))) {
     throw 'devops_ue repository not found. Pass -DevopsSource <path to devops_ue>.'
 }
 $DevopsSource = (Resolve-Path -LiteralPath $DevopsSource).Path
 $SkillRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
-
-if (-not (Test-Path -LiteralPath $ParentDir)) { New-Item -ItemType Directory -Force -Path $ParentDir | Out-Null }
-$ProjectRoot = Join-Path (Resolve-Path -LiteralPath $ParentDir).Path $ProjectName
-if ((Test-Path -LiteralPath $ProjectRoot) -and (Get-ChildItem -LiteralPath $ProjectRoot -Force | Select-Object -First 1)) {
-    throw "Target folder already exists and is not empty: $ProjectRoot"
-}
 
 $isEmpty = $Template -eq 'Empty'
 if ($isEmpty) { $TemplateName = if ($Type -eq 'Cpp') { 'TP_Blank' } else { 'TP_BlankBP' } } else { $TemplateName = $Template }
@@ -337,10 +362,15 @@ Write-Step 'Git repository and devops_ue'
 $git = Get-Command git -ErrorAction SilentlyContinue
 Push-Location $ProjectRoot
 try {
-    if ($git) { git init --quiet | Out-Null }
+    if ($git -and -not (Test-Path -LiteralPath (Join-Path $ProjectRoot '.git'))) { git init --quiet | Out-Null }
+    elseif ($git) { Write-Host '  using the existing git repository' }
     $devopsDest = Join-Path $ProjectRoot 'devops_ue'
     $addedAsSubmodule = $false
-    if ($DevopsMode -eq 'Submodule' -and $git) {
+    if ($useExistingDevops) {
+        $addedAsSubmodule = $true  # keep what the user added (submodule or copy)
+        Write-Host '  using the existing devops_ue'
+    }
+    elseif ($DevopsMode -eq 'Submodule' -and $git) {
         if (-not $DevopsUrl) { try { $DevopsUrl = (git -C $DevopsSource config --get remote.origin.url) } catch { $DevopsUrl = '' } }
         if ($DevopsUrl) {
             git submodule add $DevopsUrl devops_ue

@@ -15,10 +15,15 @@ Talk to the user in their language.
 
 Ask in this order. Use `AskUserQuestion` for choices; free text (project name) is asked as a normal message.
 
+0. **Prepared folder?** First look at the current folder. If it contains only `.git`, `.gitmodules` and
+   `devops_ue` (the user did `git init` + `git submodule add .../devops_ue` by hand) - this is the usual start -
+   the project is created **in place**: pass `-ProjectDir <current folder>`, propose the folder name as the
+   project name and skip the location question. If it has anything else (e.g. a `.uproject`), it is not a target.
 1. **Project name** - ask the user to type it. Must match `^[A-Za-z][A-Za-z0-9_]{0,19}$`
    (starts with a letter, letters/digits/underscore, max 20 chars). Re-ask if invalid.
-2. **Location** - parent folder for the project (`<parent>\<Name>`). Offer the parent of the current
-   project folder and the current folder as options. The target folder must not exist or must be empty.
+2. **Location** (only when not in place) - parent folder for the project (`<parent>\<Name>`, `-ParentDir`).
+   Offer the current folder and its parent. The target folder must not exist, be empty, or contain only
+   `.git`, `.gitmodules`, `devops_ue`.
 3. **Project type** - `C++` or `Blueprint`.
 4. **Copyright** - offer `Copyright <Name>. All Rights Reserved.` and `Copyright <Company>. All Rights Reserved.`
    (ask for the company via "Other"). The value is stored without `//`; the script adds `// ` for source files.
@@ -45,7 +50,7 @@ summary of all answers and get a confirmation.
 
 ```
 powershell -NoProfile -ExecutionPolicy Bypass -File "<skill dir>/scripts/create_project.ps1" `
-  -ProjectName "<Name>" -ParentDir "<parent>" -Type Cpp|Blueprint `
+  -ProjectName "<Name>" (-ProjectDir "<project folder>" | -ParentDir "<parent>") -Type Cpp|Blueprint `
   -EnginePath "<engine path>" -EngineAssociation "<Association from ue_info>" `
   -Template Empty|<TP_TemplateName> -Copyright "<copyright>" [-CompanyName "<company>"] [-Package]
 ```
@@ -66,7 +71,7 @@ What the script does:
    (`/Script/<Name>.<Name>GameMode` for empty C++), ActiveGameNameRedirects/ActiveClassRedirects for C++ templates.
 4. C++: creates `Source/<Name>/<Name>GameMode.h/.cpp` (`A<Name>GameMode : AGameModeBase`) unless the template
    already has it, and puts `// <copyright>` as the first line of every `.h/.cpp/.cs`.
-5. `git init`, adds `devops_ue` (submodule or copy), runs `devops_ue\setup.bat`, sets `EnginePath` and
+5. `git init` and adds `devops_ue` (submodule or copy) unless they already exist, runs `devops_ue\setup.bat`, sets `EnginePath` and
    `COPYRIGHT_LINE` in `devops_data\config.bat`.
 6. Copies to the root: `.clang-format`, `.gitignore`, `LICENSE.md`, `README.md`, `generate_project_files.bat`,
    `clean_intermediate_files.bat`, `package_game.bat` (+ `format_all_files.bat`, `run_tests.bat` for C++);
