@@ -1,22 +1,29 @@
 ---
 name: ue-web-deploy
-description: Deploy a packaged Unreal Engine web (Wasm) build to itch.io (butler), Vercel or a GitHub release, and install/check the tools for it (itch.io butler, Vercel CLI, GitHub CLI). Use when asked to publish, upload, deploy or release a web/browser build, or to install butler / vercel / gh.
+description: Deploy a packaged Unreal Engine web (Wasm) build to itch.io (butler), Vercel or a GitHub release, or build a zip for portals, and install/check the tools for it (itch.io butler, Vercel CLI, GitHub CLI). Use when asked to publish, upload, deploy, zip or release a web/browser build, or to install butler / vercel / gh.
 ---
 
 # Deploy an Unreal web (Wasm) build
 
-Scripts: `<skill dir>/scripts/install_tools.ps1`, `<skill dir>/scripts/deploy_web.ps1`
-(run with `powershell -NoProfile -ExecutionPolicy Bypass -File <script> ...`). Talk to the user in their language.
+Scripts: `<skill dir>/scripts/install_tools.ps1`, `<skill dir>/scripts/deploy_web.ps1`, `<skill dir>/scripts/make_zip.py`
+(run the .ps1 with `powershell -NoProfile -ExecutionPolicy Bypass -File <script> ...`). Talk to the user in their language.
 
 **Rules**
 * Uploading publishes the game: always run with `-DryRun` first, show the summary (target, files, size, warnings,
   exact command) and get an explicit "yes" before the real upload. Ask again for every new upload.
 * Never ask for, type or store tokens/passwords. Logins are interactive and done by the user:
   `! butler login`, `! vercel login`, `! gh auth login` (CI may use `BUTLER_API_KEY`, `VERCEL_TOKEN`, `GH_TOKEN`).
-* Public builds must be **Shipping**: `check_stage.py` (engine release scan) blocks Development builds.
-  `-AllowDevelopment` only for a private test the user explicitly asked for.
+* Public builds must be **Shipping**: the script refuses a Development stage (`ue-query-args=all` in `index.html`)
+  and a stage that fails `check_stage.py` (engine release scan). `-AllowDevelopment` only for a private test the
+  user explicitly asked for.
+* Never edit the engine web skills in `.claude\skills` (`web-deploy`, ...): an engine update overwrites them.
 
-## 1. Tools
+## 0. Environment
+
+Run `<skills dir>/ue-check-env/scripts/check_env.ps1 -For deploy -ProjectDir <project>` first: it shows the engine
+Python, Node.js/npm, Vercel CLI, GitHub CLI, butler and their login state in one table.
+
+## 1. Tools and preflight
 
 ```
 install_tools.ps1 [-Tools butler,vercel,gh] [-CheckOnly]
@@ -29,46 +36,93 @@ install_tools.ps1 [-Tools butler,vercel,gh] [-CheckOnly]
 It prints a table with the version and login state. For each "not logged in" tool needed for the chosen target,
 ask the user to run the login command with `!` and re-check with `-CheckOnly`.
 
+For a **zip** (target `zip` or `github`) no external archiver is needed - **do not require 7z/zip**. `deploy_web.ps1`
+checks what it needs itself: the engine Python (`Engine\Binaries\ThirdParty\Python3\Win64\python.exe`), free disk
+space of about **2x the stage** (zip + extracted copy for the test), and Playwright only when `-TestZip` is used.
+
 ## 2. Build to deploy
 
-`deploy_web.ps1` finds the newest stage (folder with `index.html`) in `<project>\Build\Wasm\Wasm`, `Build\Wasm` or
-`Saved\StagedBuilds\Wasm`; `-Stage <folder>` overrides. No build yet -> package first:
+`deploy_web.ps1` takes the stage (folder with `index.html`) from `<project>\Build\Wasm\Wasm`, `Build\Wasm` or
+`Saved\StagedBuilds\Wasm`, in that order; `-Stage <folder>` overrides. No build yet -> package first:
 `package_wasm.bat Shipping` (or the `ue-web-setup` skill with `-Package Shipping`). Long: run in the background.
+An engine `FileOpenOrder\` folder in the stage is never uploaded (packaging moves it to `Build\Wasm-FileOpenOrder`).
 
 ## 3. Ask (AskUserQuestion)
 
-* **Target**: itch.io / Vercel / GitHub release.
+* **Target**: itch.io (butler) / Vercel / GitHub release / zip only (for a portal upload by hand).
 * itch.io: `user/game` (the page must exist: itch.io/game/new, *Kind of project* = **HTML**), channel (default `html5`),
   optional version label.
 * Vercel: project name (default: project name in kebab case), team scope if not personal, preview or production (`-Prod`).
-* GitHub: tag (default `web-<date>`), repo if not the project's `origin`.
+* GitHub: tag (default `web-<prefix>`), repo if not the project's `origin`.
+* zip / GitHub: run the boot test on the archive (`-TestZip`)?
 
 ## 4. Deploy
 
 ```
 deploy_web.ps1 -ProjectPath "<project>" -Target itch   -ItchTarget user/game [-ItchChannel html5] [-Version 1.0.0] [-DryRun]
-deploy_web.ps1 -ProjectPath "<project>" -Target vercel [-VercelProject name] [-VercelScope team] [-Prod] [-DryRun]
-deploy_web.ps1 -ProjectPath "<project>" -Target github [-GitHubTag web-1.0] [-GitHubRepo owner/repo] [-DryRun]
+deploy_web.ps1 -ProjectPath "<project>" -Target vercel [-VercelProject name] [-VercelScope team] [-Prod] [-TestDeploy] [-DryRun]
+deploy_web.ps1 -ProjectPath "<project>" -Target github [-GitHubTag web-1.0] [-GitHubRepo owner/repo] [-TestZip] [-DryRun]
+deploy_web.ps1 -ProjectPath "<project>" -Target zip    [-Prefix v1] [-TestZip]
 ```
 
 What happens:
-1. `check_stage.py` on the stage (manifests, sha1s, no debug files, release scan).
-2. The stage is mirrored to `<project>\Saved\WebDeploy\<target>\site` without debug files and `.br` siblings
-   (these hosts don't serve them with `Content-Encoding: br`); file count/size limits are checked.
+1. Development check and `check_stage.py` on the stage (manifests, sha1s, no debug files, release scan).
+2. The stage is mirrored to `<project>\Saved\WebDeploy\<target>\site` without debug files, `FileOpenOrder` and `.br`
+   siblings (these hosts don't serve them with `Content-Encoding: br`); file count/size limits are checked.
 3. Target:
    * **itch** - `butler push site user/game:channel` (incremental patches). Then tell the user to set once on the
      itch.io page: upload marked *played in the browser*, **Embed options > SharedArrayBuffer support = ON**
      (without it the game stops at the browser check), viewport size, fullscreen button.
-   * **vercel** - writes `vercel.json` (COOP/COEP/CORP, `Cache-Control: no-cache`, `application/wasm`), `vercel link`
-     on the first run (`.vercel` is kept in the site folder), `vercel deploy [--prod]`, then the engine's
-     `webdoctor.py` checks the live URL (headers, MIME, ranges, isolation). Preview URLs can be behind Vercel
-     Authentication - then webdoctor fails; check in a browser or use `-Prod`.
-   * **github** - zips the site and creates/updates a release (`gh release create/upload`). A release is a download,
-     not a hosted page: players unzip and run it with a local server (`run_wasm.bat`).
+   * **vercel** - Vercel rejects files over **100 MB**, and the game `.wasm` is bigger raw (e.g. 133 MB). So the
+     script uploads `<Game>.wasm.br` **instead of** `<Game>.wasm` (and any other >100 MB file that has a `.br`
+     sibling) and serves it at the original URL: `vercel.json` gets a `rewrites` entry (`/<path>.wasm` ->
+     `/<path>.wasm.br`) and headers `Content-Type: application/wasm` + `Content-Encoding: br` for that path - the
+     browser decodes it, so the sha1 in `wasm-cache.json` still matches. **Never** for `.ucas/.utoc/.pak`: they are
+     read with Range requests and a compressed range breaks the engine; a container over 100 MB stops the deploy with
+     an error (use another host or more pak chunks). Everything else is uploaded raw (Vercel compresses it and
+     answers Range with 206). The limit is checked after the swap. Also: COOP/COEP/CORP, `Cache-Control: no-cache`,
+     MIME types; `.vercelignore` (`.env*`, `.vercel`) is always written - `vercel link` puts `.env.local` with a
+     token into the site folder. Then `vercel link` on the first run, `vercel deploy [--prod]`, the engine's
+     `webdoctor.py` on the live URL (headers, MIME, ranges, isolation, "whole-file .wasm GET is complete (br)"),
+     and with `-TestDeploy` the boot test `webrun.py --url <url>/index.html` (`--out %TEMP%\wr_vercel`).
+     Preview URLs can be behind Vercel Authentication - then webdoctor fails; check in a browser or use `-Prod`.
+   * **zip** - see below; nothing is uploaded.
+   * **github** - builds the zip (below) and creates/updates a release (`gh release create/upload`). A release is a
+     download, not a hosted page: players unzip and run it with a local server (`run_wasm.bat`).
+
+### Zip (target zip / github)
+
+The engine's `deploy.py --host zip` writes **only a plan** (`deploy-plan.json`: the objects, `.br` and `_headers` left
+out), not the archive. The archive is built by `make_zip.py` (stdlib `zipfile`, ZIP64, deflate 6, engine Python):
+
+```
+python -I make_zip.py <plan dir>\deploy-plan.json <stage> <out.zip> [--keep-prefix]
+```
+
+It packs only the plan's objects, checks each file exists with the plan's size, puts `index.html` at the archive root
+(the plan's `<prefix>/` stripped, as itch.io-like portals expect; `--keep-prefix` keeps it), writes `<out>.zip.tmp`,
+verifies it (testzip, entry count, `index.html`) and renames it. `deploy_web.ps1 -Target zip` runs both steps.
+
+* **Prefix**: `-Prefix`, else the short HEAD commit, else `v<N>` (next free number) when the repo has no commits.
+* **Output**: `<project>\Build\WasmDeploy\<Project>-web-<prefix>.zip` (plan in `Build\WasmDeploy\plan-<prefix>`).
+* **Test** (`-TestZip`): extracts to `%TEMP%\wz_<prefix>` and runs `webrun.py run --fixture boot --out %TEMP%\wr_<prefix>`;
+  reports PASS and READY seconds.
+* Tell the user: a zip host does not serve the `.br` copies, so the download is ~3x larger than from the stage
+  (e.g. READY 25 s instead of 9 s). For their own server use `deploy.py --host static`; for Vercel use `-Target vercel`.
+
+## Browser load test (webrun.py)
+
+`webrun.py --out` **must be short (~40 characters max)**, e.g. `%TEMP%\wr_<name>` or `<project>\Saved\wr\<name>`; the
+same for a folder a zip is extracted to. Its Chrome profile lives in `<out>\profile`, and with a long path the service
+worker's Cache Storage paths pass 260 characters: the run fails with `The game script could not be loaded` /
+`net::ERR_FAILED` while `?sw=0` passes and the build itself is fine.
 
 ## 5. Report
 
-Page/URL, what was uploaded (files, size), warnings, and the manual itch.io settings if the target was itch.
-**Time**: the total from the script's `Time:` block and how long the upload itself took.
-If something fails, show the tool's error; the usual causes are a missing login, a Development build, or host limits.
-More hosting details: `<Engine>\Engine\Platforms\Wasm\Docs\Deploy.md`.
+Page/URL or archive path, what was uploaded/packed (files, raw size, zip size), boot test result (READY), warnings,
+and the manual itch.io settings if the target was itch.
+**Time**: the total from the script's `Time:` block and how long the upload / zip itself took.
+If something fails, show the tool's error; the usual causes are a missing login, a Development build, host limits
+or a stale skill copy (the script warns; fix with `devops_ue\skills\install_skills.bat`).
+More hosting details: `<Engine>\Engine\Platforms\Wasm\Docs\Deploy.md`; overview: Epic's tutorial
+[Getting started with UE 5.9 on the web (Wasm)](https://dev.epicgames.com/community/learning/tutorials/k8z03/unreal-engine-getting-started-with-ue-5-9-on-the-web-wasm).

@@ -63,7 +63,27 @@ function Write-Timing([string]$Result = 'total') {
 }
 trap { Write-Timing 'total (FAILED)'; break }
 function Add-Warning([string]$Text) { [void]$Warnings.Add($Text); Write-Host "WARNING: $Text" -ForegroundColor Yellow }
-function Read-Text([string]$Path) { [IO.File]::ReadAllText($Path) }
+
+# warns when this copy of the skill (user/project install) differs from devops_ue\skills - a stale copy
+function Test-SkillCopy([string]$DevopsRoot) {
+    if (-not $DevopsRoot) { return }
+    $skillDir = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path.TrimEnd('\')
+    $name = Split-Path -Leaf $skillDir
+    $src = Join-Path $DevopsRoot "skills\$name"
+    if (-not (Test-Path -LiteralPath $src)) { return }
+    $src = (Resolve-Path -LiteralPath $src).Path.TrimEnd('\')
+    if ($src -eq $skillDir) { return }
+    $list = {
+        param($d)
+        Get-ChildItem -LiteralPath $d -Recurse -File -Force |
+            Where-Object { $_.Name -ne 'devops_source.txt' -and $_.FullName -notmatch '\\__pycache__\\' } |
+            ForEach-Object { $_.FullName.Substring($d.Length + 1) + '|' + (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash } |
+            Sort-Object
+    }
+    if (Compare-Object @(& $list $src) @(& $list $skillDir)) {
+        Add-Warning "This copy of the '$name' skill ($skillDir) differs from $src - reinstall: devops_ue\skills\install_skills.bat global|project (check: devops_ue\skills\check_skills.ps1)"
+    }
+}function Read-Text([string]$Path) { [IO.File]::ReadAllText($Path) }
 function Write-Text([string]$Path, [string]$Text) {
     $dir = Split-Path -Parent $Path
     if ($dir -and -not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
@@ -178,6 +198,7 @@ else {
 $ProjectName = [IO.Path]::GetFileNameWithoutExtension($UProjectPath)
 $uproject = Read-Text $UProjectPath | ConvertFrom-Json
 $configBat = Join-Path $ProjectRoot 'devops_data\config.bat'
+Test-SkillCopy (Join-Path $ProjectRoot 'devops_ue')
 
 if (-not $EnginePath -and (Test-Path -LiteralPath $configBat)) {
     $EnginePath = ((Read-Text $configBat) -split "`r?`n" | Where-Object { $_ -match '^set EnginePath=(.+)$' } | ForEach-Object { $Matches[1].Trim() } | Select-Object -First 1)
@@ -247,12 +268,25 @@ $Status['emsdk'] = if ($emsdkOk) { "ok ($wasmRoot)" } else { 'missing' }
 if (-not $emsdkOk) { Add-Warning "emscripten $EmsdkVersion is not installed (run without -SkipEmsdk/-CheckOnly or devops_ue\setup\setup_emsdk.bat)" }
 
 # ---------------------------------------------------------------------------------------------
-if ($InstallPlaywright -and -not $CheckOnly) {
-    Write-Step 'Playwright for the browser test harness (engine Python)'
-    $req = Join-Path $WasmPlatform 'Build\Tools\web\requirements.txt'
-    $code = Invoke-Exe $EnginePython "-m pip install -r `"$req`""
-    if ($code -ne 0) { Add-Warning "pip install playwright failed (code $code)" }
+Write-Step 'Playwright (browser load test: webrun.py / run_page.py)'
+function Test-Playwright {
+    $prev = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+    try { & $EnginePython -I -c 'import playwright' 2>$null | Out-Null; return ($LASTEXITCODE -eq 0) }
+    finally { $ErrorActionPreference = $prev }
 }
+$playwrightOk = Test-Playwright
+if (-not $playwrightOk -and $InstallPlaywright -and -not $CheckOnly) {
+    $req = Join-Path $WasmPlatform 'Build\Tools\web\requirements.txt'
+    Write-Host "  pip install -r $req (engine Python)"
+    $code = Invoke-Exe $EnginePython "-m pip install -r `"$req`""
+    $playwrightOk = Test-Playwright
+    if (-not $playwrightOk) {
+        Add-Warning "pip install playwright failed (code $code). The engine Python is under $EnginePath - if that is Program Files, run the same command from an elevated (Administrator) terminal: `"$EnginePython`" -m pip install -r `"$req`""
+    }
+}
+$Status['playwright'] = if ($playwrightOk) { 'ok' } else { 'missing (browser load test unavailable)' }
+if ($playwrightOk) { Write-Host '  playwright ok' }
+elseif (-not $InstallPlaywright) { Add-Warning 'Playwright is not installed in the engine Python: webrun.py load tests cannot run (re-run with -InstallPlaywright)' }
 
 # ---------------------------------------------------------------------------------------------
 Write-Step 'Blueprint-only check'
@@ -380,15 +414,38 @@ if (-not $SkipEngineSkills -and -not $CheckOnly) {
 $agents = Join-Path $ProjectRoot 'AGENTS.md'
 if ((Test-Path -LiteralPath $agents) -and -not $CheckOnly) {
     $text = Read-Text $agents
+    # a long --out puts webrun's Chrome profile (<out>\profile\...\Service Worker\CacheStorage\<hash>\<uuid>\...)
+    # past MAX_PATH: the service worker cache fails and the boot test fails although the build is fine
+    $webrunRule = "* ``webrun.py --out`` must be short (~40 characters max), e.g. ``%TEMP%\wr_<name>`` or ``<project>\Saved\wr\<name>``; " +
+        "a long path breaks the service worker cache in its Chrome profile. Symptom: ``The game script could not be loaded`` / " +
+        "``net::ERR_FAILED`` while ``?sw=0`` passes. Same for folders a zip is extracted to for a test.`r`n"
+    $tutorialUrl = 'https://dev.epicgames.com/community/learning/tutorials/k8z03/unreal-engine-getting-started-with-ue-5-9-on-the-web-wasm'
+    $tutorialLine = "* Epic tutorial: [Getting started with UE 5.9 on the web (Wasm)]($tutorialUrl).`r`n"
     if ($text -notmatch '(?m)^## Web') {
         $text = $text.TrimEnd() + "`r`n`r`n## Web (Wasm)`r`n`r`n" +
             "* Engine docs: ``$WasmPlatform\Docs`` (GettingStarted.md first); skills ``web-deploy``, ``web-perf-hillclimb``, ``web-texture-sets`` in ``.claude/skills``.`r`n" +
+            $tutorialLine +
             "* Settings: ``[$wasmSection]`` in ``Config/DefaultEngine.ini``.`r`n" +
             "* Package: ``package_wasm.bat [Development|Shipping]`` (output ``Build\Wasm``), run locally: ``run_wasm.bat`` (never open index.html from disk).`r`n" +
             "* Requires emscripten $EmsdkVersion (``WASM_EMSDK_ROOT``) and a C++ module; keep ``AllToolsets`` off and online subsystems denied for Wasm.`r`n" +
+            $webrunRule +
             "* Never upload builds; Development builds are not for the public.`r`n"
         Write-Text $agents $text
         Write-Host '  AGENTS.md: Web section'
+    }
+    else {
+        # existing Web section from an older setup: add the lines it lacks at the end of that section
+        $missing = @()
+        if ($text -notmatch 'webrun\.py --out') { $missing += $webrunRule }
+        if ($text -notmatch [regex]::Escape($tutorialUrl)) { $missing += $tutorialLine }
+        if ($missing.Count -gt 0) {
+            $m = [regex]::Match($text, '(?ms)^## Web.*?(?=^## |\z)')
+            $section = $m.Value.TrimEnd() + "`r`n" + ($missing -join '')
+            $rest = $text.Substring($m.Index + $m.Length)
+            $text = $text.Substring(0, $m.Index) + $section + $(if ($rest) { "`r`n" + $rest } else { '' })
+            Write-Text $agents $text
+            Write-Host "  AGENTS.md: $($missing.Count) line(s) added to the Web section (webrun.py --out rule, Epic tutorial)"
+        }
     }
 }
 
@@ -426,6 +483,15 @@ if ($Package -and -not $CheckOnly) {
         # UAT puts the site (index.html) into the archive folder itself or into its Wasm subfolder depending on the engine version
         $stageDir = @("$archive\Wasm", $archive) | Where-Object { Test-Path -LiteralPath (Join-Path $_ 'index.html') } | Select-Object -First 1
         if (-not $stageDir) { $stageDir = $archive }
+        # the engine leaves FileOpenOrder\ (open-order logs with build machine paths) in the public site folder:
+        # not part of the game (not in wasm-manifest/wasm-cache), fails the release scan. Keep it next to Wasm-Debug.
+        $openOrder = Join-Path $stageDir 'FileOpenOrder'
+        if ($code -eq 0 -and (Test-Path -LiteralPath $openOrder)) {
+            $openOrderDst = Join-Path (Split-Path -Parent $stageDir) 'Wasm-FileOpenOrder'
+            if (Test-Path -LiteralPath $openOrderDst) { Remove-Item -LiteralPath $openOrderDst -Recurse -Force }
+            Move-Item -LiteralPath $openOrder -Destination $openOrderDst
+            Write-Host "  FileOpenOrder moved out of the public folder to $openOrderDst"
+        }
         $Status['package'] = if ($code -eq 0) { "ok ($stageDir)" } else { "failed (code $code)" }
         if ($code -ne 0) { Add-Warning "Wasm packaging failed (code $code)" }
         elseif ($Package -ne 'Development') {

@@ -125,6 +125,8 @@ Web skills: `/ue-web-setup` (everything for Wasm: emsdk, plugins, Wasm settings,
 
 Starting with **Unreal Engine 5.9**, official web deployment is supported via the **Wasm** target (WebAssembly 64-bit with threads + WebGPU).
 
+Official guides: Epic's tutorial [Getting started with UE 5.9 on the web (Wasm)](https://dev.epicgames.com/community/learning/tutorials/k8z03/unreal-engine-getting-started-with-ue-5-9-on-the-web-wasm) and the engine docs in `Engine\Platforms\Wasm\Docs` (start with `GettingStarted.md`).
+
 Follow these steps to set up, build, and run a web project from scratch:
 
 ### 1. Prerequisites

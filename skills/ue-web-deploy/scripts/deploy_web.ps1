@@ -3,11 +3,16 @@
 #   deploy_web.ps1 -ProjectPath C:\Projects\MyGame -Target itch -ItchTarget user/my-game
 #   deploy_web.ps1 -ProjectPath C:\Projects\MyGame -Target vercel -VercelProject my-game -Prod
 #   deploy_web.ps1 -ProjectPath C:\Projects\MyGame -Target github -GitHubTag web-1.0
+#   deploy_web.ps1 -ProjectPath C:\Projects\MyGame -Target zip [-Prefix v1] [-TestZip]   # zip for portals, no upload
 #   add -DryRun to prepare and check everything without uploading
 [CmdletBinding()]
 param(
     [string]$ProjectPath = '.',
-    [Parameter(Mandatory)][ValidateSet('itch', 'vercel', 'github')][string]$Target,
+    [Parameter(Mandatory)][ValidateSet('itch', 'vercel', 'github', 'zip')][string]$Target,
+    # zip / github: deploy id; default: short HEAD commit, or v<N> when the repo has no commits
+    [string]$Prefix = '',
+    # zip / github: extract the archive to a short path and run the engine boot test on it (needs Playwright)
+    [switch]$TestZip,
     # staged Wasm folder (the one with index.html); autodetected under <project>\Build when empty
     [string]$Stage = '',
     [string]$EnginePath = '',
@@ -19,6 +24,8 @@ param(
     [string]$VercelProject = '',
     [string]$VercelScope = '',
     [switch]$Prod,
+    # after a Vercel deploy: run the engine boot test (webrun.py --url) on the live URL (needs Playwright)
+    [switch]$TestDeploy,
     # GitHub
     [string]$GitHubTag = '',
     [string]$GitHubRepo = '',
@@ -60,7 +67,27 @@ function Write-Timing([string]$Result = 'total') {
 }
 trap { Write-Timing 'total (FAILED)'; break }
 function Add-Warning([string]$Text) { [void]$Warnings.Add($Text); Write-Host "WARNING: $Text" -ForegroundColor Yellow }
-function Format-Size([double]$Bytes) { if ($Bytes -ge 1GB) { '{0:N2} GB' -f ($Bytes / 1GB) } else { '{0:N1} MB' -f ($Bytes / 1MB) } }
+
+# warns when this copy of the skill (user/project install) differs from devops_ue\skills - a stale copy
+function Test-SkillCopy([string]$DevopsRoot) {
+    if (-not $DevopsRoot) { return }
+    $skillDir = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path.TrimEnd('\')
+    $name = Split-Path -Leaf $skillDir
+    $src = Join-Path $DevopsRoot "skills\$name"
+    if (-not (Test-Path -LiteralPath $src)) { return }
+    $src = (Resolve-Path -LiteralPath $src).Path.TrimEnd('\')
+    if ($src -eq $skillDir) { return }
+    $list = {
+        param($d)
+        Get-ChildItem -LiteralPath $d -Recurse -File -Force |
+            Where-Object { $_.Name -ne 'devops_source.txt' -and $_.FullName -notmatch '\\__pycache__\\' } |
+            ForEach-Object { $_.FullName.Substring($d.Length + 1) + '|' + (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash } |
+            Sort-Object
+    }
+    if (Compare-Object @(& $list $src) @(& $list $skillDir)) {
+        Add-Warning "This copy of the '$name' skill ($skillDir) differs from $src - reinstall: devops_ue\skills\install_skills.bat global|project (check: devops_ue\skills\check_skills.ps1)"
+    }
+}function Format-Size([double]$Bytes) { if ($Bytes -ge 1GB) { '{0:N2} GB' -f ($Bytes / 1GB) } else { '{0:N1} MB' -f ($Bytes / 1MB) } }
 function Invoke-Capture([string]$File, [string[]]$Arguments) {
     $prev = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
     try { $out = & $File @Arguments 2>&1 | ForEach-Object { "$_" } | Tee-Object -Variable lines | Out-Host; $code = $LASTEXITCODE }
@@ -71,6 +98,49 @@ function Show-Command([string]$File, [string[]]$Arguments) {
     Write-Host ("  > {0} {1}" -f $File, (($Arguments | ForEach-Object { if ($_ -match '\s') { "`"$_`"" } else { $_ } }) -join ' '))
 }
 
+# zip of the stage the way the engine plans it: deploy.py --host zip (plan only) + make_zip.py (the archive)
+function New-WebZip([string]$DeployPrefix) {
+    $zipDir = Join-Path $ProjectRoot 'Build\WasmDeploy'
+    $planDir = Join-Path $zipDir "plan-$DeployPrefix"
+    $zipPath = Join-Path $zipDir "$ProjectName-web-$DeployPrefix.zip"
+    New-Item -ItemType Directory -Force -Path $zipDir | Out-Null
+    Write-Host "  deploy plan: deploy.py --host zip --prefix $DeployPrefix"
+    & $EnginePython -I (Join-Path $WasmTools 'deploy\deploy.py') --stage $Stage --host zip --prefix $DeployPrefix --out $planDir | Out-Host
+    if ($LASTEXITCODE -ne 0) { throw "deploy.py --host zip failed (code $LASTEXITCODE): see the release scan above" }
+    $planJson = Join-Path $planDir 'deploy-plan.json'
+    & $EnginePython -I (Join-Path $PSScriptRoot 'make_zip.py') $planJson $Stage $zipPath | Out-Host
+    if ($LASTEXITCODE -ne 0) { throw "make_zip.py failed (code $LASTEXITCODE)" }
+    return $zipPath
+}
+
+# boot test of an archive: extract and run webrun.py with SHORT paths (a long --out breaks the service worker cache
+# in webrun's Chrome profile: "The game script could not be loaded" / net::ERR_FAILED while ?sw=0 passes)
+function Test-WebZip([string]$ZipPath, [string]$DeployPrefix) {
+    $safe = ($DeployPrefix -replace '[^A-Za-z0-9]', '')
+    $extract = Join-Path $env:TEMP "wz_$safe"
+    $out = Join-Path $env:TEMP "wr_$safe"
+    if ($out.Length -gt 40) { $extract = Join-Path ([IO.Path]::GetPathRoot($env:TEMP)) "wz_$safe"; $out = Join-Path ([IO.Path]::GetPathRoot($env:TEMP)) "wr_$safe" }
+    foreach ($d in $extract, $out) { if (Test-Path -LiteralPath $d) { Remove-Item -LiteralPath $d -Recurse -Force } }
+    Write-Host "  extracting to $extract"
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    [IO.Compression.ZipFile]::ExtractToDirectory($ZipPath, $extract)
+    $prev = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+    & $EnginePython -I -c 'import playwright' 2>$null | Out-Null
+    $hasPlaywright = $LASTEXITCODE -eq 0
+    $ErrorActionPreference = $prev
+    if (-not $hasPlaywright) { Add-Warning 'Playwright is missing in the engine Python: zip boot test skipped (ue-web-setup -InstallPlaywright)'; return }
+    Write-Host "  webrun.py run --fixture boot --out $out"
+    & $EnginePython (Join-Path $WasmTools 'web\webrun.py') run --stage $extract --fixture boot --out $out | Out-Host
+    $resultFile = Get-ChildItem -LiteralPath $out -Recurse -Filter 'result.json' -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($resultFile) {
+        $result = [IO.File]::ReadAllText($resultFile.FullName) | ConvertFrom-Json
+        $ready = if ($result.PSObject.Properties['markers_s'] -and $result.markers_s.ready) { '{0:N1}s' -f [double]$result.markers_s.ready } else { '-' }
+        if ($result.pass) { Write-Host "  boot test PASS, READY $ready (no .br in a zip: the cold load is ~3x larger than from the stage)" }
+        else { Add-Warning "zip boot test FAILED, see $out" }
+    }
+    else { Add-Warning "zip boot test gave no result.json (exit $LASTEXITCODE), see $out" }
+}
+
 # ---------------------------------------------------------------------------------------------
 Write-Step 'Project, engine and stage'
 
@@ -78,6 +148,7 @@ $ProjectPath = (Resolve-Path -LiteralPath $ProjectPath).Path
 $ProjectRoot = if ($ProjectPath -like '*.uproject') { Split-Path -Parent $ProjectPath } else { $ProjectPath }
 $uprojectFile = Get-ChildItem -LiteralPath $ProjectRoot -Filter '*.uproject' -File | Select-Object -First 1
 $ProjectName = if ($uprojectFile) { $uprojectFile.BaseName } else { Split-Path -Leaf $ProjectRoot }
+Test-SkillCopy (Join-Path $ProjectRoot 'devops_ue')
 
 if (-not $EnginePath) {
     $configBat = Join-Path $ProjectRoot 'devops_data\config.bat'
@@ -127,30 +198,59 @@ Write-Step "Preparing upload folder for $Target"
 $deployRoot = Join-Path $ProjectRoot "Saved\WebDeploy\$Target"
 $site = Join-Path $deployRoot 'site'
 New-Item -ItemType Directory -Force -Path $site | Out-Null
-# hosts.json excludes + .br siblings (itch/Vercel/GitHub don't serve them with Content-Encoding: br)
-$exclude = @('*.br', 'Manifest_*.txt', '*.js.symbols', '*.pdb', '*.sym', '*.debug.wasm', '*.bat', '*.sh', 'build-stamp.json', '*.tmp', 'vercel.json')
-$robo = @($Stage, $site, '/MIR', '/XD', '.vercel', '/NFL', '/NDL', '/NJH', '/NJS', '/NP', '/XF') + $exclude
+# hosts.json excludes + .br siblings: itch.io/GitHub/zip don't serve .br with Content-Encoding: br. Vercel can, through a
+# rewrite + header - its target puts the needed .br files back below (the game .wasm is >100 MB raw, Vercel's file limit).
+# .vercelignore / .env* (vercel link writes .env.local with a token) are excluded here only so /MIR doesn't purge them.
+$exclude = @('*.br', 'Manifest_*.txt', '*.js.symbols', '*.pdb', '*.sym', '*.debug.wasm', '*.bat', '*.sh', 'build-stamp.json', '*.tmp',
+    'vercel.json', '.vercelignore', '.env*')
+# .br files of an earlier run are excluded from /MIR's purge - remove them first
+Get-ChildItem -LiteralPath $site -Recurse -File -Filter '*.br' -Force -ErrorAction SilentlyContinue | Remove-Item -Force
+# FileOpenOrder: open-order logs the engine leaves in older stages (build machine paths), never public
+$robo = @($Stage, $site, '/MIR', '/XD', '.vercel', 'FileOpenOrder', '/NFL', '/NDL', '/NJH', '/NJS', '/NP', '/XF') + $exclude
 & robocopy @robo | Out-Null
 if ($LASTEXITCODE -ge 8) { throw "robocopy failed with code $LASTEXITCODE" }
 
-$files = @(Get-ChildItem -LiteralPath $site -Recurse -File -Force | Where-Object { $_.FullName -notlike "*\.vercel\*" })
+function Get-SiteFiles { @(Get-ChildItem -LiteralPath $site -Recurse -File -Force | Where-Object { $_.FullName -notmatch '\\\.vercel\\' -and $_.Name -notlike '.env*' -and $_.Name -ne '.vercelignore' }) }
+$files = Get-SiteFiles
 $total = ($files | Measure-Object Length -Sum).Sum
 $largest = $files | Sort-Object Length -Descending | Select-Object -First 1
 Write-Host "  $($files.Count) files, $(Format-Size $total), largest $($largest.Name) $(Format-Size $largest.Length)"
 
 switch ($Target) {
-    'itch' {
-        # itch.io HTML game limits (verify on https://itch.io/docs/creators/html5 if a warning shows)
+    { $_ -in 'itch', 'zip' } {
+        # itch.io HTML game limits (a zip is usually made for itch.io-like portals) (verify on https://itch.io/docs/creators/html5 if a warning shows)
         if ($files.Count -gt 1000) { Add-Warning 'itch.io HTML games allow up to 1000 files' }
         if ($largest.Length -gt 200MB) { Add-Warning 'itch.io HTML games limit a single file to ~200 MB' }
         if ($total -gt 500MB) { Add-Warning 'itch.io HTML games limit the extracted size to ~500 MB (can be raised by itch support)' }
     }
-    'vercel' {
-        if ($largest.Length -gt 100MB) { Add-Warning "$($largest.Name) is over 100 MB: it may exceed Vercel's per-file upload limit for your plan" }
-    }
+    # vercel: the 100 MB limit is checked after the .br swap, in the Vercel step
     'github' {
         if ($total -gt 2GB) { Add-Warning 'GitHub release assets are limited to 2 GB each' }
     }
+}
+
+if ($Target -in 'zip', 'github') {
+    # zips are built with the engine Python (stdlib zipfile) - no 7z or other external tools
+    if (-not $WasmTools -or -not (Test-Path -LiteralPath $EnginePython)) { throw "Engine Python not found ($EnginePython): pass -EnginePath" }
+    # stage + zip + extracted copy for the test: ~2x the stage
+    $stageBytes = (Get-ChildItem -LiteralPath $Stage -Recurse -File -Force | Measure-Object Length -Sum).Sum
+    $drive = [IO.Path]::GetPathRoot($ProjectRoot)
+    $free = (New-Object IO.DriveInfo $drive).AvailableFreeSpace
+    Write-Host "  disk $drive free $(Format-Size $free), need ~$(Format-Size (2 * $stageBytes))"
+    if ($free -lt 2 * $stageBytes) { throw "Not enough free space on $drive ($(Format-Size $free)); ~$(Format-Size (2 * $stageBytes)) is needed for the zip and its test copy" }
+
+    if (-not $Prefix) {
+        $prev = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+        $head = (& git -C $ProjectRoot rev-parse --short HEAD 2>$null)
+        $ErrorActionPreference = $prev
+        if ($LASTEXITCODE -eq 0 -and $head) { $Prefix = "$head".Trim() }
+        else {
+            $n = 1
+            while (Test-Path -LiteralPath (Join-Path $ProjectRoot "Build\WasmDeploy\$ProjectName-web-v$n.zip")) { $n++ }
+            $Prefix = "v$n"
+        }
+    }
+    Write-Host "  prefix: $Prefix"
 }
 
 # ---------------------------------------------------------------------------------------------
@@ -181,24 +281,68 @@ switch ($Target) {
     'vercel' {
         Write-Step 'Vercel'
         if (-not (Get-Command vercel -ErrorAction SilentlyContinue)) { throw 'vercel CLI not found: run install_tools.ps1 -Tools vercel' }
+
+        # Vercel rejects files over 100 MB, and the game .wasm is bigger raw (e.g. 133 MB). Upload <file>.br INSTEAD of
+        # <file> and serve it at the original URL with a rewrite + Content-Encoding: br: the browser decodes it, so the
+        # sha1 in wasm-cache.json still matches. Done for every .wasm and for other >100 MB files that have a .br sibling,
+        # never for .ucas/.utoc/.pak: the engine reads containers with Range requests, a compressed range breaks them.
+        # Everything else is uploaded raw (Vercel compresses it itself and answers Range on containers with 206).
+        $brSwaps = New-Object System.Collections.ArrayList
+        foreach ($f in Get-SiteFiles) {
+            if ($f.Extension -in '.ucas', '.utoc', '.pak', '.br') { continue }
+            if ($f.Extension -ne '.wasm' -and $f.Length -le 100MB) { continue }
+            $rel = $f.FullName.Substring($site.TrimEnd('\').Length + 1)
+            $brSrc = Join-Path $Stage "$rel.br"
+            if (-not (Test-Path -LiteralPath $brSrc)) { continue }
+            Copy-Item -LiteralPath $brSrc -Destination "$($f.FullName).br" -Force
+            Remove-Item -LiteralPath $f.FullName -Force
+            [void]$brSwaps.Add([pscustomobject]@{ Path = '/' + ($rel -replace '\\', '/'); Ext = $f.Extension; Raw = $f.Length; Br = (Get-Item -LiteralPath "$($f.FullName).br").Length })
+            Write-Host ("  {0}: upload .br {1} instead of {2} (rewrite + Content-Encoding: br)" -f $rel, (Format-Size $brSwaps[-1].Br), (Format-Size $f.Length))
+        }
+
+        # the limit after the swap
+        $tooBig = @(Get-SiteFiles | Where-Object { $_.Length -gt 100MB })
+        if ($tooBig.Count -gt 0) {
+            $list = ($tooBig | ForEach-Object { "$($_.Name) ($(Format-Size $_.Length))" }) -join ', '
+            $containers = @($tooBig | Where-Object { $_.Extension -in '.ucas', '.utoc', '.pak' })
+            if ($containers.Count -gt 0) {
+                throw "Vercel can't host this build: $list over its 100 MB file limit. Containers are read with Range requests and can't be uploaded compressed. Use another host (own server: deploy.py --host static; Cloudflare R2 + worker.js; itch.io via -Target itch) or split the content into more pak chunks."
+            }
+            throw "Files over Vercel's 100 MB limit without a .br sibling: $list. Repackage (package_wasm.bat writes .br) or use another host."
+        }
+
+        $mime = @{ '.wasm' = 'application/wasm'; '.js' = 'text/javascript'; '.json' = 'application/json' }
         # cross-origin isolation for Wasm threads + revalidation (sw.js versions files by sha1); engine netlify.toml/_headers equivalent
+        $headers = New-Object System.Collections.ArrayList
+        [void]$headers.Add([ordered]@{ source = '/(.*)'; headers = @(
+                @{ key = 'Cross-Origin-Opener-Policy'; value = 'same-origin' },
+                @{ key = 'Cross-Origin-Embedder-Policy'; value = 'require-corp' },
+                @{ key = 'Cross-Origin-Resource-Policy'; value = 'same-origin' },
+                @{ key = 'Cache-Control'; value = 'no-cache' },
+                @{ key = 'X-Content-Type-Options'; value = 'nosniff' }) })
+        [void]$headers.Add([ordered]@{ source = '/(.*)\.wasm'; headers = @(@{ key = 'Content-Type'; value = 'application/wasm' }) })
+        [void]$headers.Add([ordered]@{ source = '/(.*)\.(ucas|utoc|pak)'; headers = @(@{ key = 'Content-Type'; value = 'application/octet-stream' }) })
+        $rewrites = New-Object System.Collections.ArrayList
+        foreach ($s in $brSwaps) {
+            $type = if ($mime.ContainsKey($s.Ext)) { $mime[$s.Ext] } else { 'application/octet-stream' }
+            [void]$rewrites.Add([ordered]@{ source = $s.Path; destination = "$($s.Path).br" })
+            [void]$headers.Add([ordered]@{ source = $s.Path; headers = @(
+                    @{ key = 'Content-Type'; value = $type },
+                    @{ key = 'Content-Encoding'; value = 'br' }) })
+        }
         $vercelJson = [ordered]@{
             '$schema'     = 'https://openapi.vercel.sh/vercel.json'
             cleanUrls     = $false
             trailingSlash = $false
-            headers       = @(
-                [ordered]@{ source = '/(.*)'; headers = @(
-                        @{ key = 'Cross-Origin-Opener-Policy'; value = 'same-origin' },
-                        @{ key = 'Cross-Origin-Embedder-Policy'; value = 'require-corp' },
-                        @{ key = 'Cross-Origin-Resource-Policy'; value = 'same-origin' },
-                        @{ key = 'Cache-Control'; value = 'no-cache' },
-                        @{ key = 'X-Content-Type-Options'; value = 'nosniff' }) },
-                [ordered]@{ source = '/(.*)\.wasm'; headers = @(@{ key = 'Content-Type'; value = 'application/wasm' }) },
-                [ordered]@{ source = '/(.*)\.(ucas|utoc|pak)'; headers = @(@{ key = 'Content-Type'; value = 'application/octet-stream' }) }
-            )
+            headers       = $headers.ToArray()
         }
+        if ($rewrites.Count -gt 0) { $vercelJson['rewrites'] = $rewrites.ToArray() }
         [IO.File]::WriteAllText((Join-Path $site 'vercel.json'), ($vercelJson | ConvertTo-Json -Depth 6), $Utf8NoBom)
-        Write-Host '  vercel.json written (COOP/COEP/CORP, no-cache, wasm MIME)'
+        # vercel link writes .env.local (VERCEL_OIDC_TOKEN) into this folder: never upload it
+        [IO.File]::WriteAllText((Join-Path $site '.vercelignore'), ".env*`n.vercel`n", $Utf8NoBom)
+        $final = Get-SiteFiles
+        Write-Host ("  vercel.json written (COOP/COEP/CORP, no-cache, MIME, {0} .br rewrite(s)); .vercelignore: .env*, .vercel" -f $rewrites.Count)
+        Write-Host ("  upload: {0} files, {1}, largest {2}" -f $final.Count, (Format-Size (($final | Measure-Object Length -Sum).Sum)), (Format-Size (($final | Measure-Object Length -Maximum).Maximum)))
 
         if (-not $VercelProject) { $VercelProject = ($ProjectName.ToLowerInvariant() -replace '[^a-z0-9-]', '-').Trim('-') }
         $scopeArgs = if ($VercelScope) { @('--scope', $VercelScope) } else { @() }
@@ -223,6 +367,19 @@ switch ($Target) {
                     Write-Step 'webdoctor.py (headers, MIME, ranges, isolation - read-only)'
                     & $EnginePython -I (Join-Path $WasmTools 'deploy\webdoctor.py') "$url/"
                     if ($LASTEXITCODE -ne 0) { Add-Warning 'webdoctor.py reported problems (preview deployments may be behind Vercel Authentication: check the URL in a browser or deploy with -Prod)' }
+                    if ($TestDeploy) {
+                        Write-Step 'Boot test of the live URL (webrun.py, short --out)'
+                        $out = Join-Path $env:TEMP 'wr_vercel'
+                        if (Test-Path -LiteralPath $out) { Remove-Item -LiteralPath $out -Recurse -Force }
+                        & $EnginePython (Join-Path $WasmTools 'web\webrun.py') run --url "$url/index.html" --fixture boot --out $out | Out-Host
+                        $resultFile = Get-ChildItem -LiteralPath $out -Recurse -Filter 'result.json' -ErrorAction SilentlyContinue | Select-Object -First 1
+                        if ($resultFile) {
+                            $result = [IO.File]::ReadAllText($resultFile.FullName) | ConvertFrom-Json
+                            $ready = if ($result.PSObject.Properties['markers_s'] -and $result.markers_s.ready) { '{0:N1}s' -f [double]$result.markers_s.ready } else { '-' }
+                            if ($result.pass) { Write-Host "  boot test PASS, READY $ready" } else { Add-Warning "live boot test FAILED, see $out" }
+                        }
+                        else { Add-Warning "live boot test gave no result.json, see $out" }
+                    }
                 }
             }
         }
@@ -232,11 +389,9 @@ switch ($Target) {
         Write-Step 'GitHub release'
         $gh = (Get-Command gh -ErrorAction SilentlyContinue).Source
         if (-not $gh) { throw 'gh not found: run install_tools.ps1 -Tools gh' }
-        if (-not $GitHubTag) { $GitHubTag = 'web-' + (Get-Date -Format 'yyyyMMdd-HHmm') }
-        $zip = Join-Path $deployRoot "$ProjectName-$GitHubTag.zip"
-        if (Test-Path -LiteralPath $zip) { Remove-Item -LiteralPath $zip -Force }
-        Write-Host "  zipping -> $zip"
-        Compress-Archive -Path (Join-Path $site '*') -DestinationPath $zip -CompressionLevel Optimal
+        if (-not $GitHubTag) { $GitHubTag = "web-$Prefix" }
+        $zip = New-WebZip $Prefix
+        if ($TestZip) { Test-WebZip $zip $Prefix }
         $repoArgs = if ($GitHubRepo) { @('--repo', $GitHubRepo) } else { @() }
         $notes = "Web (Wasm) build of $ProjectName. Unzip and serve with run_wasm.bat / serve.py (COOP/COEP headers required, file:// does not work)."
         $prev = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
@@ -248,12 +403,22 @@ switch ($Target) {
             else { @('release', 'create', $GitHubTag, $zip, '--title', "$ProjectName web $GitHubTag", '--notes', $notes) + $repoArgs }
             Show-Command 'gh' $cmdArgs
             if (-not $DryRun) {
-                & $gh @args
+                & $gh @cmdArgs
                 if ($LASTEXITCODE -ne 0) { throw "gh release failed (code $LASTEXITCODE). Not logged in? Run: gh auth login" }
                 & $gh release view $GitHubTag @repoArgs --json url --jq .url
             }
         }
         finally { Pop-Location; $ErrorActionPreference = $prev }
+    }
+
+    'zip' {
+        Write-Step "Zip for portals (prefix $Prefix)"
+        $zip = New-WebZip $Prefix
+        if ($TestZip) { Write-Step 'Zip boot test (short paths)'; Test-WebZip $zip $Prefix }
+        Write-Host ''
+        Write-Host "Archive: $zip (index.html at the root - upload it to itch.io or a similar portal)" -ForegroundColor Green
+        Write-Host 'A zip host does not serve the .br copies: the download is ~3x larger than from your own server (--host static) or Vercel.' -ForegroundColor Yellow
+        $site = $zip
     }
 }
 

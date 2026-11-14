@@ -67,7 +67,27 @@ function Write-Timing([string]$Result = 'total') {
 }
 trap { Write-Timing 'total (FAILED)'; break }
 function Add-Warning([string]$Text) { [void]$Warnings.Add($Text); Write-Host "WARNING: $Text" -ForegroundColor Yellow }
-function Read-Text([string]$Path) { [IO.File]::ReadAllText($Path) }
+
+# warns when this copy of the skill (user/project install) differs from devops_ue\skills - a stale copy
+function Test-SkillCopy([string]$DevopsRoot) {
+    if (-not $DevopsRoot) { return }
+    $skillDir = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path.TrimEnd('\')
+    $name = Split-Path -Leaf $skillDir
+    $src = Join-Path $DevopsRoot "skills\$name"
+    if (-not (Test-Path -LiteralPath $src)) { return }
+    $src = (Resolve-Path -LiteralPath $src).Path.TrimEnd('\')
+    if ($src -eq $skillDir) { return }
+    $list = {
+        param($d)
+        Get-ChildItem -LiteralPath $d -Recurse -File -Force |
+            Where-Object { $_.Name -ne 'devops_source.txt' -and $_.FullName -notmatch '\\__pycache__\\' } |
+            ForEach-Object { $_.FullName.Substring($d.Length + 1) + '|' + (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash } |
+            Sort-Object
+    }
+    if (Compare-Object @(& $list $src) @(& $list $skillDir)) {
+        Add-Warning "This copy of the '$name' skill ($skillDir) differs from $src - reinstall: devops_ue\skills\install_skills.bat global|project (check: devops_ue\skills\check_skills.ps1)"
+    }
+}function Read-Text([string]$Path) { [IO.File]::ReadAllText($Path) }
 function Write-Text([string]$Path, [string]$Text) {
     $dir = Split-Path -Parent $Path
     if ($dir -and -not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
@@ -205,6 +225,7 @@ if (-not $DevopsSource -or -not (Test-Path -LiteralPath (Join-Path $DevopsSource
 }
 $DevopsSource = (Resolve-Path -LiteralPath $DevopsSource).Path
 $SkillRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
+Test-SkillCopy $DevopsSource
 
 $isEmpty = $Template -eq 'Empty'
 if ($isEmpty) { $TemplateName = if ($Type -eq 'Cpp') { 'TP_Blank' } else { 'TP_BlankBP' } } else { $TemplateName = $Template }

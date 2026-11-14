@@ -6,13 +6,17 @@
 # Never logs in: authentication is interactive (butler login / vercel login / gh auth login).
 [CmdletBinding()]
 param(
-    [ValidateSet('butler', 'vercel', 'gh')][string[]]$Tools = @('butler', 'vercel', 'gh'),
+    # butler, vercel, gh (comma-separated works with powershell -File too, where "-Tools a,b" arrives as one string)
+    [string[]]$Tools = @('butler', 'vercel', 'gh'),
     [string]$ButlerDir = (Join-Path $env:LOCALAPPDATA 'itch-butler'),
     [switch]$CheckOnly
 )
 
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
+$Tools = @($Tools | ForEach-Object { $_ -split '[,\s]+' } | Where-Object { $_ } | ForEach-Object { $_.ToLowerInvariant() })
+$unknownTools = @($Tools | Where-Object { $_ -notin 'butler', 'vercel', 'gh' })
+if ($unknownTools) { throw "Unknown tool(s): $($unknownTools -join ', '). Known: butler, vercel, gh" }
 
 # --- step timing: every Write-Step starts a timed step, Write-Timing prints the table (also on failure) ---
 $ScriptTimer = [Diagnostics.Stopwatch]::StartNew()

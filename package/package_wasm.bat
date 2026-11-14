@@ -44,7 +44,8 @@ echo Project: %ProjectPath%
 echo Archive: %ArchivePath%\Wasm
 echo =======================================================
 
-"%RunUATPath%" BuildCookRun ^
+rem "call": without it cmd never returns from RunUAT.bat and nothing below runs
+call "%RunUATPath%" BuildCookRun ^
   -project="%ProjectPath%" ^
   -platform=Wasm ^
   -clientconfig="%Configuration%" ^
@@ -58,5 +59,19 @@ if %ERRORLEVEL% neq 0 (
     exit /b %ERRORLEVEL%
 )
 
+rem the engine leaves FileOpenOrder\ (open-order logs with build machine paths) in the public site folder;
+rem the game doesn't use it and it fails the release scan (check_stage.py) - keep it next to Wasm-Debug
+call :moveFileOpenOrder "%ArchivePath%\Wasm\Wasm"
+call :moveFileOpenOrder "%ArchivePath%\Wasm"
+
 echo [SUCCESS] Web package completed in: %ArchivePath%\Wasm
+exit /b 0
+
+:moveFileOpenOrder
+if not exist "%~1\index.html" exit /b 0
+if not exist "%~1\FileOpenOrder" exit /b 0
+for %%P in ("%~1\..") do set "FileOpenOrderDst=%%~fP\Wasm-FileOpenOrder"
+if exist "%FileOpenOrderDst%" rmdir /s /q "%FileOpenOrderDst%"
+move "%~1\FileOpenOrder" "%FileOpenOrderDst%" >nul
+echo FileOpenOrder moved out of the public folder to %FileOpenOrderDst%
 exit /b 0

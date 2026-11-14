@@ -11,6 +11,13 @@ Scripts live next to this file: `<skill dir>/scripts/`. Run them with
 
 Talk to the user in their language.
 
+## 0. Environment
+
+First run the `ue-check-env` skill's script for this skill:
+`<skills dir>/ue-check-env/scripts/check_env.ps1 -For create -ProjectDir <target folder>`.
+If something required is missing (`[XX]`), stop and offer the fix from its table; continue only when the required
+items are in place. Mention `[!!]` items briefly (e.g. Git LFS missing matters for the LFS question at the end).
+
 ## 1. Collect answers
 
 Ask in this order. Use `AskUserQuestion` for choices; free text (project name) is asked as a normal message.
@@ -20,6 +27,14 @@ Ask in this order. Use `AskUserQuestion` for choices; free text (project name) i
    maybe `install_skills.bat project`) - this is the usual start -
    the project is created **in place**: pass `-ProjectDir <current folder>`, propose the folder name as the
    project name and skip the location question. If it has anything else (e.g. a `.uproject`), it is not a target.
+   **Check with commands, not by eye** - an empty tool output does not mean an empty folder:
+   `Get-ChildItem -Force | Select-Object Name` for the top level and
+   `(Get-ChildItem -Force -Recurse .claude | Measure-Object).Count` for the size of `.claude`.
+   An existing `.claude` is kept: the script copies the devops_ue skills into `.claude\skills` over the
+   same-named skill folders (devops_ue is the source of truth, normally the same files that
+   `install_skills.bat project` put there); other skills and files in `.claude` stay untouched.
+   If the script warns that "this copy of the skill differs from devops_ue", tell the user and suggest
+   `devops_ue\skills\install_skills.bat` (+ `devops_ue\skills\check_skills.ps1` to verify).
 1. **Project name** - ask the user to type it. Must match `^[A-Za-z][A-Za-z0-9_]{0,19}$`
    (starts with a letter, letters/digits/underscore, max 20 chars). Re-ask if invalid.
 2. **Location** (only when not in place) - parent folder for the project (`<parent>\<Name>`, `-ParentDir`).
@@ -96,12 +111,38 @@ What the script does:
 8. Empty map: creates `/Game/Maps/MainLevel` via `UnrealEditor-Cmd -run=pythonscript` (`create_main_level.py`).
 9. `-Package`: runs `package_game.bat` (output in `<project>\Build`).
 
-## 3. Report
+## 3. Git: LFS and the first commit
+
+After the project is created (and the report below is shown), ask in one `AskUserQuestion` call:
+
+1. **Git LFS** - "Use Git LFS for assets (.uasset, .umap, textures, audio, video)?"
+   Recommend **yes** when the project has template content or will be pushed to GitHub (it rejects files over
+   100 MB; large repos without LFS get slow). Needs Git LFS installed (see the environment check).
+2. **Commit** - "Make the first commit now?" yes / no (the user may want to look at the files first).
+3. **devops_data\config.bat** - keep local (git-ignored, recommended for a team: it holds local engine paths) or
+   commit it (fine for a solo project).
+
+Then run (LFS must be set up before the first commit of the assets):
+
+```
+powershell -NoProfile -ExecutionPolicy Bypass -File "<skill dir>/scripts/finalize_git.ps1" `
+  -ProjectDir "<project>" [-UseLfs] [-Commit] [-Message "<message>"] [-CommitLocalConfig]
+```
+
+* `-UseLfs`: `git lfs install --local` + `git lfs track` for Unreal assets and media -> `.gitattributes`.
+* without `-CommitLocalConfig`: `devops_data/config.bat` is added to `.gitignore`.
+* `-Commit`: checks `git config user.name/email` (asks the user to set them if missing), `git add -A`,
+  `git commit` (default message `Initial <Name> project`), warns about files over 50 MB without LFS.
+* Never pushes. Report the commit hash, file count, files in LFS and the time from its `Time:` block.
+  Suggest `gh repo create --private --source . --push` only if the user asks about a remote.
+
+If the user says no to both LFS and commit, skip the script but still offer the `.gitignore` choice for `config.bat`.
+
+## 4. Report
 
 * Path to the `.uproject`, what was created, and every line from the script's `Warnings:` block.
 * **Time**: the total from the script's `Time:` block and the longest steps (e.g. build, MainLevel creation, packaging).
 * If MainLevel creation failed: tell the user to create it in the editor (File > New Level > Empty Level,
   save as `/Game/Maps/MainLevel`) - configs already point to it. Logs: `<project>\Saved\Logs`.
 * If the C++ build failed: show the relevant compiler errors from the output.
-* Nothing is committed - suggest reviewing and making the first commit (`git add . && git commit`).
-  Mention `devops_data\config.bat` contains local paths (commit it only for solo projects).
+* Then go to step 3 (LFS / first commit) - `create_project.ps1` itself never commits.

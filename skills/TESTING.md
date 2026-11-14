@@ -20,7 +20,10 @@ devops_ue\skills\install_skills.bat
 
 - [ ] в `devops_ue` свежий коммит, есть папка `skills`
 - [ ] в `HotShell\.claude\skills\` есть `ue-create-project`, `ue-web-setup`, `ue-web-deploy`, без `devops_source.txt`
-- [ ] Claude Code открыт (или перезапущен) в `HotShell`, при вводе `/ue-` подсказываются все три скила
+- [ ] Claude Code открыт (или перезапущен) в `HotShell`, при вводе `/ue-` подсказываются все скилы
+      (`ue-check-env`, `ue-create-project`, `ue-web-setup`, `ue-web-deploy`)
+- [ ] `install_skills.bat` в конце показал таблицу `check_skills.ps1`: все копии `same`
+- [ ] `/ue-check-env`: таблица `[ok]/[!!]/[XX]/[--]` с версиями и командами исправления
 
 ## 1. C++ проект: `/ue-create-project`
 
@@ -37,6 +40,10 @@ devops_ue\skills\install_skills.bat
 - [ ] `devops_data\config.bat`: правильные `EnginePath` и `COPYRIGHT_LINE`
 - [ ] `generate_project_files.bat`, `format_all_files.bat`, `clean_intermediate_files.bat` отрабатывают
       без ошибки «The syntax of the command is incorrect»
+- [ ] скил начал с проверки окружения (`check_env.ps1 -For create`)
+- [ ] после создания спросил про LFS, первый коммит и `config.bat`; ответы: LFS — да, коммит — да, `config.bat` — локально
+- [ ] `git log` — один коммит, `.gitattributes` есть, `git lfs ls-files` не пуст,
+      `git check-ignore devops_data/config.bat` выводит путь; в конце вывода — таблица `Time:`
 
 ## 2. Blueprint проект из шаблона: `/ue-create-project`
 

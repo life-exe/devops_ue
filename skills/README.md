@@ -4,6 +4,8 @@
 
 | Skill | Description |
 |-------|-------------|
+| `ue-check-env` | Checks the machine: UE, Visual Studio C++, Git/LFS, Python, Playwright, emsdk, Node.js, Vercel CLI, GitHub CLI, butler, long paths, disk space |
+| `ue-install-env` | Installs what is missing (Git, LFS, gh, Node.js, Vercel CLI, butler, Python, clang-format, emsdk, Playwright), then re-checks |
 | `ue-create-project` | Creates a new UE5 project (C++/Blueprint, empty MainLevel or Unreal template) wired up with devops_ue |
 | `ue-web-setup` | Sets a UE 5.9+ project up for the web (Wasm): emsdk, .uproject plugin rules, Wasm settings, C++ module for BP projects, SDK check, build/package |
 | `ue-web-deploy` | Installs butler / Vercel CLI / GitHub CLI and deploys a Wasm build to itch.io, Vercel or a GitHub release |
@@ -21,6 +23,10 @@ install_skills.bat project   - <project>\.claude\skills (the folder that holds d
 * **Global** is needed to create a project in a folder that has no devops_ue yet; global skills remember the devops_ue path
   in `devops_source.txt`.
 * `ue-create-project` also copies the skills into `.claude\skills\` of every project it creates.
+* `install_skills.bat` ends with `check_skills.ps1`, which compares every installed copy (user and project) with
+  `devops_ue\skills` by SHA256 and reports stale ones; run it any time:
+  `powershell -ExecutionPolicy Bypass -File devops_ue\skills\check_skills.ps1`.
+  The skill scripts also warn when the copy they run from differs from the project's `devops_ue`.
 
 ## Usage
 

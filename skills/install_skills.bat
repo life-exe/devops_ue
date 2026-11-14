@@ -36,7 +36,7 @@ if not exist "%SkillsDst%" mkdir "%SkillsDst%"
 for /d %%S in ("%SkillsSrc%*") do (
     if exist "%%S\SKILL.md" (
         echo Installing %%~nxS
-        robocopy "%%S" "%SkillsDst%\%%~nxS" /E /NFL /NDL /NJH /NJS /NP >nul
+        robocopy "%%S" "%SkillsDst%\%%~nxS" /MIR /XD __pycache__ /NFL /NDL /NJH /NJS /NP >nul
         rem global skills remember where devops_ue lives - the scripts need setup.bat and templates from it
         if "%WriteSource%"=="1" (
             >"%SkillsDst%\%%~nxS\devops_source.txt" echo %DevopsRoot%
@@ -47,5 +47,9 @@ for /d %%S in ("%SkillsSrc%*") do (
 )
 
 echo Skills installed to "%SkillsDst%"
+
+rem verify: every installed copy (user and project) must match devops_ue\skills
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0check_skills.ps1" -ProjectDir "%ProjectRoot%"
+
 echo Restart Claude Code to pick them up.
 if "%~1"=="" pause

@@ -9,6 +9,15 @@ Everything is done by `scripts/web_setup.ps1` (run with
 `powershell -NoProfile -ExecutionPolicy Bypass -File "<skill dir>/scripts/web_setup.ps1" ...`).
 Talk to the user in their language. Source of truth for web details is the engine:
 `<Engine>\Engine\Platforms\Wasm\Docs\GettingStarted.md` - read the relevant section when the user asks something this file doesn't cover.
+Epic's tutorial for the same topic (online, may be newer than the installed engine docs):
+[Getting started with UE 5.9 on the web (Wasm)](https://dev.epicgames.com/community/learning/tutorials/k8z03/unreal-engine-getting-started-with-ue-5-9-on-the-web-wasm).
+The page renders with JavaScript, so a plain fetch may return only its title - then rely on the engine docs.
+
+## 0. Environment
+
+Run `<skills dir>/ue-check-env/scripts/check_env.ps1 -For web -ProjectDir <project>` first. Missing required items
+(`[XX]`: UE 5.9 Wasm platform, Visual Studio C++, engine Python, ...) -> stop and offer the fix. A missing or wrong
+emscripten is fine here: this skill installs it.
 
 ## 1. Check first
 
@@ -20,7 +29,8 @@ web_setup.ps1 -ProjectPath "<project dir or .uproject>" -CheckOnly -SkipVerify
 
 It resolves the engine (`-EnginePath`, else `devops_data\config.bat`, else `.uproject` EngineAssociation), and reports:
 engine >= 5.9 with `Engine\Platforms\Wasm`, emscripten version (exactly the one from `Wasm_SDK.json`, 6.0.10 for 5.9),
-C++ vs Blueprint-only, plugin rules, GameDefaultMap.
+C++ vs Blueprint-only, plugin rules, GameDefaultMap, and whether Playwright is installed in the engine Python
+(`playwright ok|missing` in the summary; needed only for the engine's browser load test `webrun.py`).
 
 ## 2. Ask (AskUserQuestion, one call)
 
@@ -40,6 +50,10 @@ Ask separately (plain message) only when relevant:
 * **emscripten missing** - installing clones emsdk to `C:\emsdk` (or `-EmsdkDir`) and downloads ~1 GB; confirm first.
 * Page title if it should differ from the project name; mobile devices policy (`-MobileDevices Warn|Block|Allow`).
 * `AIAssistant` is disabled for the web by default; pass `-KeepAIAssistant` if the user wants to keep it.
+* **Playwright missing** (only when the check said `missing`) - ask whether to install it for the automated browser
+  load test (`webrun.py --fixture boot`: READY time, download size, renderer tier). Not needed for setup, packaging,
+  deploy or a manual check with `run_wasm.bat`. Yes -> `-InstallPlaywright` (pip into the engine Python; under
+  `Program Files` it may need an elevated terminal - the script prints the exact command if pip fails).
 
 ## 3. Run
 
@@ -60,9 +74,23 @@ What it does:
    MobileDevices, bTargetMobileDeferredTier, bInjectIsolationHeaders, any `-WebSetting`; GameDefaultMap -> MapsToCook.
    All keys: `Engine\Platforms\Wasm\Source\Developer\WasmTargetPlatform\Public\WasmTargetSettings.h`.
 4. **devops_ue**: root `package_wasm.bat`, `run_wasm.bat`, `setup_emsdk.bat`; `EnginePath` in `devops_data\config.bat`.
-5. **Engine web skills** (`web-deploy`, `web-perf-hillclimb`, `web-texture-sets`) -> `.claude\skills`; a Web section in `AGENTS.md`.
-6. `RunUAT Turnkey -command=VerifySdk -platform=Wasm` (skip with `-SkipVerify`).
-7. Optional editor build and `BuildCookRun -platform=Wasm` into `<project>\Build\Wasm`; `check_stage.py` for Shipping/Test.
+5. **Engine web skills** (`web-deploy`, `web-perf-hillclimb`, `web-texture-sets`) -> `.claude\skills` (never edit
+   them - an engine update overwrites them; workarounds go to our skills and `AGENTS.md`); a Web section in `AGENTS.md`
+   with the project's web rules, including the `webrun.py --out` rule below (added to an existing Web section too).
+6. **Playwright**: checked always, installed with `-InstallPlaywright`.
+7. `RunUAT Turnkey -command=VerifySdk -platform=Wasm` (skip with `-SkipVerify`).
+8. Optional editor build and `BuildCookRun -platform=Wasm` into `<project>\Build\Wasm`. The engine leaves
+   `FileOpenOrder\` (open-order logs with build machine paths, not used by the game) in the public site folder; the
+   script moves it to `Build\Wasm-FileOpenOrder` (kept for pak ordering, next to `Wasm-Debug`) before
+   `check_stage.py` (Shipping/Test). `package_wasm.bat` does the same.
+
+## Browser load test (webrun.py)
+
+`webrun.py run --stage <stage> --fixture boot --out <dir>`: **`--out` must be short (~40 characters max)**, e.g.
+`%TEMP%\wr_<name>` or `<project>\Saved\wr\<name>`. Its Chrome profile lives in `<out>\profile`, and with a long path
+the service worker's Cache Storage paths pass 260 characters: the run fails with
+`The game script could not be loaded` / `net::ERR_FAILED` although `?sw=0` passes and the build is fine.
+The same applies to a folder a zip is extracted to for a test.
 
 ## 4. Report
 
