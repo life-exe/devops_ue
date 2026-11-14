@@ -15,9 +15,11 @@ git submodule add https://github.com/life-exe/devops_ue
 devops_ue\skills\install_skills.bat
 ```
 
+`install_skills.bat` спросит, куда ставить: **P** — только в проект (`HotShell\.claude\skills`), **G** — глобально
+(`%USERPROFILE%\.claude\skills`). Для теста выберите **P**; режим можно передать аргументом: `install_skills.bat project`.
+
 - [ ] в `devops_ue` свежий коммит, есть папка `skills`
-- [ ] в `%USERPROFILE%\.claude\skills\` есть `ue-create-project`, `ue-web-setup`, `ue-web-deploy`,
-      в каждой `devops_source.txt` с путём к `HotShell\devops_ue`
+- [ ] в `HotShell\.claude\skills\` есть `ue-create-project`, `ue-web-setup`, `ue-web-deploy`, без `devops_source.txt`
 - [ ] Claude Code открыт (или перезапущен) в `HotShell`, при вводе `/ue-` подсказываются все три скила
 
 ## 1. C++ проект: `/ue-create-project`
@@ -38,21 +40,27 @@ devops_ue\skills\install_skills.bat
 
 ## 2. Blueprint проект из шаблона: `/ue-create-project`
 
-Подготовить вторую папку так же (скилы уже установлены):
+Подготовить вторую папку так же; здесь проверим глобальную установку (**G**):
 
 ```powershell
 mkdir C:\_Projects\UnrealEngine\HotShellBP
 cd C:\_Projects\UnrealEngine\HotShellBP
 git init
 git submodule add https://github.com/life-exe/devops_ue
+devops_ue\skills\install_skills.bat global
 ```
 
-Открыть Claude Code в `HotShellBP`. Ответы: Blueprint, шаблон Third Person, на вопрос «упаковать сразу?» — **да**.
+- [ ] в `%USERPROFILE%\.claude\skills\` есть все три скила, в каждом `devops_source.txt` с путём к `HotShellBP\devops_ue`
+
+Открыть Claude Code в `HotShellBP`. Ответы: Blueprint, свой копирайт, шаблон Third Person,
+на вопрос «упаковать сразу?» — **да**.
 
 > Зачем упаковка: в конце скил спрашивает, упаковать ли проект сразу, и при «да» запускает `package_game.bat`
 > (Windows, Development). В шаге 1 проверяется ответ «нет», здесь — «да». Для веба Windows-упаковка не нужна;
 > если время дорого, шаг можно пропустить и позже вручную запустить `package_game.bat` — это тот же скрипт.
 
+- [ ] скил спросил копирайт (в Blueprint-проекте тоже), он есть в итоговой сводке перед запуском
+- [ ] `DefaultGame.ini`: `CopyrightNotice` — ваш текст; `devops_data\config.bat`: `COPYRIGHT_LINE`
 - [ ] проект открывается, персонаж бегает
 - [ ] упаковка лежит в `HotShellBP\Build\Windows`, exe запускается
 
@@ -95,8 +103,9 @@ git submodule add https://github.com/life-exe/devops_ue
 - удалить проект на Vercel, черновик на itch, приватный репозиторий `HotShellBP` на GitHub
 - удалить папки `HotShell` и `HotShellBP`; если не даёт длина путей:
   `rd /s /q "\\?\C:\_Projects\UnrealEngine\HotShellBP"`
-- `install_skills.bat` записал в скилы путь к `HotShell\devops_ue`: после удаления папки запустите
-  `install_skills.bat` из любого другого devops_ue (например, `ShootThemUp\devops_ue`)
+- глобальные скилы помнят путь к `HotShellBP\devops_ue`: после удаления папки удалите их из
+  `%USERPROFILE%\.claude\skills\` или переустановите `install_skills.bat global` из другого devops_ue
+  (например, `ShootThemUp\devops_ue`)
 
 ## Время
 

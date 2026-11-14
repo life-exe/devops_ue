@@ -155,13 +155,14 @@ elseif ($ParentDir) {
 }
 else { throw 'Pass -ProjectDir <project folder> or -ParentDir <folder for <ProjectName>>.' }
 
-# a folder prepared by hand may already hold the git repo and the devops_ue submodule - nothing else
-$allowedExisting = @('.git', '.gitmodules', 'devops_ue')
+# a folder prepared by hand may already hold the git repo, the devops_ue submodule and
+# project-local skills (devops_ue\skills\install_skills.bat project) - nothing else
+$allowedExisting = @('.git', '.gitmodules', 'devops_ue', '.claude')
 $existingItems = @()
 if (Test-Path -LiteralPath $ProjectRoot) { $existingItems = @(Get-ChildItem -LiteralPath $ProjectRoot -Force) }
 $blocking = @($existingItems | Where-Object { $allowedExisting -notcontains $_.Name } | ForEach-Object { $_.Name })
 if ($blocking.Count -gt 0) {
-    throw "Target folder is not empty: $ProjectRoot (only .git, .gitmodules and devops_ue may exist; found: $($blocking -join ', '))"
+    throw "Target folder is not empty: $ProjectRoot (only .git, .gitmodules, devops_ue and .claude may exist; found: $($blocking -join ', '))"
 }
 $existingDevops = Join-Path $ProjectRoot 'devops_ue'
 $useExistingDevops = Test-Path -LiteralPath (Join-Path $existingDevops 'setup.bat')

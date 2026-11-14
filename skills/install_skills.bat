@@ -1,23 +1,51 @@
 :: Copyright LifeEXE. All Rights Reserved.
-:: Installs devops_ue skills for Claude Code for the current user (%USERPROFILE%\.claude\skills)
-:: so they are available in any folder, e.g. ue-create-project before a project exists.
+:: Installs devops_ue skills for Claude Code.
+::   install_skills.bat           - asks where to install
+::   install_skills.bat global    - %USERPROFILE%\.claude\skills (any folder, needed to create a project from scratch)
+::   install_skills.bat project   - <project>\.claude\skills (the folder that holds devops_ue, only this project)
 @echo off
 setlocal
 
 set "SkillsSrc=%~dp0"
-set "SkillsDst=%USERPROFILE%\.claude\skills"
 for %%I in ("%~dp0..") do set "DevopsRoot=%%~fI"
+for %%I in ("%~dp0..\..") do set "ProjectRoot=%%~fI"
 
+set "Mode=%~1"
+if /i "%Mode%"=="global" goto :mode_global
+if /i "%Mode%"=="project" goto :mode_project
+
+echo Where to install the skills?
+echo   [G] Global  - %USERPROFILE%\.claude\skills (available in every folder)
+echo   [P] Project - %ProjectRoot%\.claude\skills (only this project, can be committed)
+choice /c GP /n /m "Choose G or P: "
+if errorlevel 2 goto :mode_project
+
+:mode_global
+set "SkillsDst=%USERPROFILE%\.claude\skills"
+set "WriteSource=1"
+goto :install
+
+:mode_project
+set "SkillsDst=%ProjectRoot%\.claude\skills"
+rem project skills find devops_ue next to .claude by themselves - no absolute path, the folder stays portable
+set "WriteSource=0"
+
+:install
 if not exist "%SkillsDst%" mkdir "%SkillsDst%"
 
 for /d %%S in ("%SkillsSrc%*") do (
     if exist "%%S\SKILL.md" (
         echo Installing %%~nxS
         robocopy "%%S" "%SkillsDst%\%%~nxS" /E /NFL /NDL /NJH /NJS /NP >nul
-        rem remember where devops_ue lives - the skill scripts need setup.bat and templates from it
-        >"%SkillsDst%\%%~nxS\devops_source.txt" echo %DevopsRoot%
+        rem global skills remember where devops_ue lives - the scripts need setup.bat and templates from it
+        if "%WriteSource%"=="1" (
+            >"%SkillsDst%\%%~nxS\devops_source.txt" echo %DevopsRoot%
+        ) else (
+            if exist "%SkillsDst%\%%~nxS\devops_source.txt" del /q "%SkillsDst%\%%~nxS\devops_source.txt"
+        )
     )
 )
 
 echo Skills installed to "%SkillsDst%"
-pause
+echo Restart Claude Code to pick them up.
+if "%~1"=="" pause

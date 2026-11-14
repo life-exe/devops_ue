@@ -15,18 +15,23 @@ Talk to the user in their language.
 
 Ask in this order. Use `AskUserQuestion` for choices; free text (project name) is asked as a normal message.
 
-0. **Prepared folder?** First look at the current folder. If it contains only `.git`, `.gitmodules` and
-   `devops_ue` (the user did `git init` + `git submodule add .../devops_ue` by hand) - this is the usual start -
+0. **Prepared folder?** First look at the current folder. If it contains only `.git`, `.gitmodules`,
+   `devops_ue` and optionally `.claude` (the user did `git init` + `git submodule add .../devops_ue` by hand,
+   maybe `install_skills.bat project`) - this is the usual start -
    the project is created **in place**: pass `-ProjectDir <current folder>`, propose the folder name as the
    project name and skip the location question. If it has anything else (e.g. a `.uproject`), it is not a target.
 1. **Project name** - ask the user to type it. Must match `^[A-Za-z][A-Za-z0-9_]{0,19}$`
    (starts with a letter, letters/digits/underscore, max 20 chars). Re-ask if invalid.
 2. **Location** (only when not in place) - parent folder for the project (`<parent>\<Name>`, `-ParentDir`).
    Offer the current folder and its parent. The target folder must not exist, be empty, or contain only
-   `.git`, `.gitmodules`, `devops_ue`.
+   `.git`, `.gitmodules`, `devops_ue`, `.claude`.
 3. **Project type** - `C++` or `Blueprint`.
-4. **Copyright** - offer `Copyright <Name>. All Rights Reserved.` and `Copyright <Company>. All Rights Reserved.`
-   (ask for the company via "Other"). The value is stored without `//`; the script adds `// ` for source files.
+4. **Copyright** - **always ask, for Blueprint projects too; never invent or default it silently.**
+   A Blueprint project has no sources now, but the copyright goes to `DefaultGame.ini` (`CopyrightNotice`),
+   `devops_data\config.bat` (`COPYRIGHT_LINE`, used for generated Target/test files), `AGENTS.md`, and to the C++
+   module that `ue-web-setup` adds later. Offer `Copyright <Name>. All Rights Reserved.` and
+   `Copyright <Company>. All Rights Reserved.` (company or custom text via "Other"). The value is stored without
+   `//`; the script adds `// ` for source files.
 5. **Engine version** - run
    `ue_info.ps1 -Engines`
    It prints JSON (`Version`, `Path`, `Association`, `Installed`, `EditorBuilt`, `Source`), newest first.
@@ -43,8 +48,9 @@ Ask in this order. Use `AskUserQuestion` for choices; free text (project name) i
 8. **devops_ue** - default: added as a git submodule (`git submodule add <origin url of this devops_ue>`).
    Only ask if the user mentioned they are offline / want a plain copy -> `-DevopsMode Copy`.
 
-Batch questions 3-7 into one or two `AskUserQuestion` calls where possible. Before running, show a short
-summary of all answers and get a confirmation.
+Batch questions 3-7 into one or two `AskUserQuestion` calls where possible, but every one of them must be
+asked - none is skipped because of the project type. Before running, show a short summary of all answers
+(name, folder, type, **copyright**, engine, start map, packaging) and get a confirmation.
 
 ## 2. Create the project
 

@@ -10,14 +10,17 @@
 
 ## Install
 
-* For the current user (works in any folder, needed for `ue-create-project`):
-
 ```
-install_skills.bat
+install_skills.bat           - asks: [G]lobal or [P]roject
+install_skills.bat global    - %USERPROFILE%\.claude\skills: available in every folder
+install_skills.bat project   - <project>\.claude\skills (the folder that holds devops_ue): only this project, can be committed
 ```
 
-* For a single project: copy skill folders into `<project>\.claude\skills\`
-  (`ue-create-project` does it automatically for the projects it creates).
+* **Project** is enough for the usual start: `mkdir MyGame`, `git init`, `git submodule add https://github.com/life-exe/devops_ue`,
+  `devops_ue\skills\install_skills.bat project`, open Claude Code in `MyGame`, `/ue-create-project` creates the project in place.
+* **Global** is needed to create a project in a folder that has no devops_ue yet; global skills remember the devops_ue path
+  in `devops_source.txt`.
+* `ue-create-project` also copies the skills into `.claude\skills\` of every project it creates.
 
 ## Usage
 
