@@ -29,13 +29,20 @@ Ask in this order. Use `AskUserQuestion` for choices; free text (project name) i
 4. **Copyright** - **always ask, for Blueprint projects too; never invent or default it silently.**
    A Blueprint project has no sources now, but the copyright goes to `DefaultGame.ini` (`CopyrightNotice`),
    `devops_data\config.bat` (`COPYRIGHT_LINE`, used for generated Target/test files), `AGENTS.md`, and to the C++
-   module that `ue-web-setup` adds later. Offer `Copyright <Name>. All Rights Reserved.` and
-   `Copyright <Company>. All Rights Reserved.` (company or custom text via "Other"). The value is stored without
-   `//`; the script adds `// ` for source files.
+   module that `ue-web-setup` adds later. Two steps, because an `AskUserQuestion` option cannot take typed text
+   (only the built-in "Other / Type something" can):
+   1. **Company** - ask as a normal message (free text, together with the project name if convenient):
+      "Company / studio name? Empty = none". It goes to `-CompanyName` (`DefaultGame.ini` CompanyName).
+   2. **Copyright** - then `AskUserQuestion` with **concrete, already filled-in strings**, never placeholders like
+      `<Name>`/`<Company>`: `Copyright <actual company>. All Rights Reserved.` (only if a company was given),
+      `Copyright <actual project name>. All Rights Reserved.`; custom text comes through "Other".
+   The value is stored without `//`; the script adds `// ` for source files.
 5. **Engine version** - run
    `ue_info.ps1 -Engines`
    It prints JSON (`Version`, `Path`, `Association`, `Installed`, `EditorBuilt`, `Source`), newest first.
-   * Show detected engines as options (`5.9.0 - C:\Program Files\Epic Games\UE_5.9`), up to 4; mention others in text.
+   * Two or more engines: show them as options (`5.9.0 - C:\Program Files\Epic Games\UE_5.9`), up to 4; mention others in text.
+   * Exactly one engine: don't ask (a question needs at least 2 options) - say which engine will be used and
+     show it in the final summary, where the user can still change it.
    * None found -> ask for the engine root path (folder that contains `Engine\`).
    * Warn if `EditorBuilt` is false (source build that is not compiled yet).
 6. **Start map**
@@ -50,7 +57,10 @@ Ask in this order. Use `AskUserQuestion` for choices; free text (project name) i
 
 Batch questions 3-7 into one or two `AskUserQuestion` calls where possible, but every one of them must be
 asked - none is skipped because of the project type. Before running, show a short summary of all answers
-(name, folder, type, **copyright**, engine, start map, packaging) and get a confirmation.
+(name, folder, type, company, **copyright**, engine, start map, packaging) and get a confirmation.
+
+`AskUserQuestion` limits: 1-4 questions per call, 2-4 options per question, header up to 12 characters.
+Never add an option whose meaning is "type it yourself" - that is what the built-in "Other" is for.
 
 ## 2. Create the project
 

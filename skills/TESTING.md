@@ -25,13 +25,13 @@ devops_ue\skills\install_skills.bat
 ## 1. C++ проект: `/ue-create-project`
 
 Скил должен сам увидеть подготовленную папку и предложить имя `HotShell` без вопроса о расположении.
-Ответы: C++, свой копирайт, движок 5.9, пустая `MainLevel`, на вопрос «упаковать сразу?» — **нет**.
+Ответы: C++, компания (текстом), копирайт из готовых вариантов, движок 5.9, пустая `MainLevel`, на вопрос «упаковать сразу?» — **нет**.
 
 - [ ] проект создан прямо в `HotShell`, вывод скрипта: `using the existing git repository`, `using the existing devops_ue`
 - [ ] `HotShell.uproject` открывается, редактор стартует на `MainLevel`
 - [ ] GameMode по умолчанию — `HotShellGameMode` (Project Settings > Maps & Modes)
 - [ ] есть `Source\HotShell\HotShellGameMode.h/.cpp`, первая строка каждого `.h/.cpp/.cs` — ваш копирайт
-- [ ] `DefaultGame.ini`: `CopyrightNotice`, `ProjectName`
+- [ ] `DefaultGame.ini`: `CopyrightNotice`, `CompanyName`, `ProjectName`
 - [ ] в корне: `.clang-format`, `.gitignore`, `AGENTS.md`, `CLAUDE.md`, `.claude\skills\`, bat-скрипты
 - [ ] `git submodule status` показывает `devops_ue`
 - [ ] `devops_data\config.bat`: правильные `EnginePath` и `COPYRIGHT_LINE`
@@ -52,14 +52,14 @@ devops_ue\skills\install_skills.bat global
 
 - [ ] в `%USERPROFILE%\.claude\skills\` есть все три скила, в каждом `devops_source.txt` с путём к `HotShellBP\devops_ue`
 
-Открыть Claude Code в `HotShellBP`. Ответы: Blueprint, свой копирайт, шаблон Third Person,
+Открыть Claude Code в `HotShellBP`. Ответы: Blueprint, компания (текстом), копирайт из готовых вариантов, шаблон Third Person,
 на вопрос «упаковать сразу?» — **да**.
 
 > Зачем упаковка: в конце скил спрашивает, упаковать ли проект сразу, и при «да» запускает `package_game.bat`
 > (Windows, Development). В шаге 1 проверяется ответ «нет», здесь — «да». Для веба Windows-упаковка не нужна;
 > если время дорого, шаг можно пропустить и позже вручную запустить `package_game.bat` — это тот же скрипт.
 
-- [ ] скил спросил копирайт (в Blueprint-проекте тоже), он есть в итоговой сводке перед запуском
+- [ ] скил спросил компанию текстом и копирайт (в Blueprint-проекте тоже); варианты копирайта — готовые строки с реальными именами, без `<...>`; оба есть в итоговой сводке
 - [ ] `DefaultGame.ini`: `CopyrightNotice` — ваш текст; `devops_data\config.bat`: `COPYRIGHT_LINE`
 - [ ] проект открывается, персонаж бегает
 - [ ] упаковка лежит в `HotShellBP\Build\Windows`, exe запускается
