@@ -86,6 +86,8 @@ function Add-Status([string]$Tool, [string]$Path, [string]$Version, [string]$Aut
 if ($Tools -contains 'butler') {
     Write-Step 'itch.io butler'
     $butler = Get-ToolPath 'butler'
+    # PATH inherited from the calling session (Add-UserPath below changes only this process and new terminals)
+    $butlerOnSessionPath = [bool]$butler
     if (-not $butler -and (Test-Path -LiteralPath (Join-Path $ButlerDir 'butler.exe'))) { Add-UserPath $ButlerDir; $butler = Join-Path $ButlerDir 'butler.exe' }
     if (-not $butler -and -not $CheckOnly) {
         # official channel: https://itch.io/docs/butler/installing.html
@@ -104,7 +106,9 @@ if ($Tools -contains 'butler') {
         $ver = ([regex]::Match((Invoke-Capture $butler @('-V'))[1], 'v\d+\.\d+\.\d+')).Value
         $creds = Join-Path $env:USERPROFILE '.config\itch\butler_creds'
         $auth = if ($env:BUTLER_API_KEY) { 'BUTLER_API_KEY' } elseif (Test-Path -LiteralPath $creds) { 'logged in' } else { 'not logged in' }
-        Add-Status 'butler' $butler $ver $auth 'butler login'
+        # a butler installed after this session started is not on its PATH yet: print a command that runs as-is
+        $butlerLogin = if ($butlerOnSessionPath) { 'butler login' } else { "& `"$butler`" login" }
+        Add-Status 'butler' $butler $ver $auth $butlerLogin
     }
     else { Add-Status 'butler' '' '' 'not installed' '' }
 }

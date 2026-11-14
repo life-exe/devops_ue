@@ -428,6 +428,9 @@ if ((Test-Path -LiteralPath $agents) -and -not $CheckOnly) {
         "``net::ERR_FAILED`` while ``?sw=0`` passes. Same for folders a zip is extracted to for a test.`r`n"
     $tutorialUrl = 'https://dev.epicgames.com/community/learning/tutorials/k8z03/unreal-engine-getting-started-with-ue-5-9-on-the-web-wasm'
     $tutorialLine = "* Epic tutorial: [Getting started with UE 5.9 on the web (Wasm)]($tutorialUrl).`r`n"
+    # uploads are what ue-web-deploy is for - with a dry run and an explicit yes, Shipping only
+    $uploadRule = "* Upload builds only with the ue-web-deploy skill: dry run first, then an explicit yes from the user for every upload; only Shipping builds go public, Development builds never.`r`n"
+    $oldUploadRule = '(?m)^\* Never upload builds; Development builds are not for the public\.[ \t]*\r?\n?'
     if ($text -notmatch '(?m)^## Web') {
         $text = $text.TrimEnd() + "`r`n`r`n## Web (Wasm)`r`n`r`n" +
             "* Engine docs: ``$WasmPlatform\Docs`` (GettingStarted.md first); skills ``web-deploy``, ``web-perf-hillclimb``, ``web-texture-sets`` in ``.claude/skills``.`r`n" +
@@ -436,13 +439,19 @@ if ((Test-Path -LiteralPath $agents) -and -not $CheckOnly) {
             "* Package: ``package_wasm.bat [Development|Shipping]`` (output ``Build\Wasm``), run locally: ``run_wasm.bat`` (never open index.html from disk).`r`n" +
             "* Requires emscripten $EmsdkVersion (``WASM_EMSDK_ROOT``) and a C++ module; keep ``AllToolsets`` off and online subsystems denied for Wasm.`r`n" +
             $webrunRule +
-            "* Never upload builds; Development builds are not for the public.`r`n"
+            $uploadRule
         Write-Text $agents $text
         Write-Host '  AGENTS.md: Web section'
     }
     else {
-        # existing Web section from an older setup: add the lines it lacks at the end of that section
+        # existing Web section from an older setup: replace the old upload ban, add the lines it lacks at the end
+        if ($text -match $oldUploadRule) {
+            $text = [regex]::Replace($text, $oldUploadRule, $uploadRule.Replace('$', '$$'))
+            Write-Text $agents $text
+            Write-Host '  AGENTS.md: "Never upload builds" replaced by the ue-web-deploy rule'
+        }
         $missing = @()
+        if ($text -notmatch 'Upload builds only with the ue-web-deploy skill') { $missing += $uploadRule }
         if ($text -notmatch 'webrun\.py --out') { $missing += $webrunRule }
         if ($text -notmatch [regex]::Escape($tutorialUrl)) { $missing += $tutorialLine }
         if ($missing.Count -gt 0) {
@@ -451,7 +460,7 @@ if ((Test-Path -LiteralPath $agents) -and -not $CheckOnly) {
             $rest = $text.Substring($m.Index + $m.Length)
             $text = $text.Substring(0, $m.Index) + $section + $(if ($rest) { "`r`n" + $rest } else { '' })
             Write-Text $agents $text
-            Write-Host "  AGENTS.md: $($missing.Count) line(s) added to the Web section (webrun.py --out rule, Epic tutorial)"
+            Write-Host "  AGENTS.md: $($missing.Count) line(s) added to the Web section"
         }
     }
 }

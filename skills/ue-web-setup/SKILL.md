@@ -63,7 +63,12 @@ web_setup.ps1 -ProjectPath "<project>" -StartMode Click [-ForwardOnly] [-InjectI
   [-InstallPlaywright] [-BuildEditor] [-Package Development|Shipping]
 ```
 
-Builds and packaging take many minutes (first Wasm link is slow): run in the background and wait for the notification.
+Builds and packaging take many minutes (first Wasm link is slow: ~25 min): run in the background and wait for the
+notification. **A background command dies with the Claude Code session** (its output then ends with `[killed]`):
+for a long `-Package` either keep the session open, or let the user run `package_wasm.bat Shipping` in their own
+terminal. When resuming / before reporting a build as ready, check that the run finished (the output has the
+`Time:` block, no `[killed]`) and that `Build\Wasm\index.html` is newer than the run start - otherwise say
+"packaging did not finish" and don't use the older `Build\Wasm`.
 
 What it does:
 1. **emsdk**: validates `WASM_EMSDK_ROOT` / `EMSDK` / AutoSDK (`UE_SDKS_ROOT`); warns about a stale `EMSDK`; installs

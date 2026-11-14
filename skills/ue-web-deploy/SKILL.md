@@ -13,6 +13,9 @@ Scripts: `<skill dir>/scripts/install_tools.ps1`, `<skill dir>/scripts/deploy_we
   exact command) and get an explicit "yes" before the real upload. Ask again for every new upload.
 * Never ask for, type or store tokens/passwords. Logins are interactive and done by the user:
   `! butler login`, `! vercel login`, `! gh auth login` (CI may use `BUTLER_API_KEY`, `VERCEL_TOKEN`, `GH_TOKEN`).
+  If butler was installed after this Claude Code session started, it is not on the session's PATH and
+  `butler login` fails with "not recognized": use the command the scripts print, e.g.
+  `! & "C:\Users\<user>\AppData\Local\itch-butler\butler.exe" login` (new terminals / a restarted Claude Code see it on PATH).
 * Public builds must be **Shipping**: the script refuses a Development stage (`ue-query-args=all` in `index.html`)
   and a stage that fails `check_stage.py` (engine release scan). `-AllowDevelopment` only for a private test the
   user explicitly asked for.
@@ -51,7 +54,10 @@ An engine `FileOpenOrder\` folder in the stage is never uploaded (packaging move
 
 * **Target**: itch.io (butler) / Vercel / GitHub release / zip only (for a portal upload by hand).
 * itch.io: `user/game` (the page must exist: itch.io/game/new, *Kind of project* = **HTML**), channel (default `html5`),
-  optional version label.
+  optional version label, and **who will see it**: a check (page visibility **Draft** or **Restricted**,
+  itch.io Edit game -> Visibility & access) or a release (**Public** - the build is public the moment the push
+  finishes). For a new page recommend Draft, and Public only after the game ran in the browser. Repeat it in the
+  confirmation before the real upload ("the page is Draft / Public: ... will see this build").
 * Vercel: project name (default: project name in kebab case), team scope if not personal, preview or production (`-Prod`).
 * GitHub: tag (default `web-<prefix>`), repo if not the project's `origin`.
 * zip / GitHub: run the boot test on the archive (`-TestZip`)?
@@ -70,9 +76,15 @@ What happens:
 2. The stage is mirrored to `<project>\Saved\WebDeploy\<target>\site` without debug files, `FileOpenOrder` and `.br`
    siblings (these hosts don't serve them with `Content-Encoding: br`); file count/size limits are checked.
 3. Target:
-   * **itch** - `butler push site user/game:channel` (incremental patches). Then tell the user to set once on the
-     itch.io page: upload marked *played in the browser*, **Embed options > SharedArrayBuffer support = ON**
-     (without it the game stops at the browser check), viewport size, fullscreen button.
+   * **itch** - `butler push site user/game:channel` (incremental patches). Then the script waits (up to ~2 min)
+     until itch.io has processed the build and prints the channel row (build id, version); a new channel exists only
+     after that, so "still processing" is a warning, not a failure (`butler status user/game` later).
+     **After the first push to a channel the page shows**
+     `There was a problem loading your project: You've selected a HTML5 game but haven't configured how your project is embedded`
+     - expected until the page is configured once (Edit game): Kind of project HTML -> Uploads: mark the channel upload
+     *This file will be played in the browser* -> Embed options: viewport (e.g. 1280x720), **SharedArrayBuffer support
+     ON** (without it the game stops at the browser check), Fullscreen button -> Save -> reopen Edit game and check
+     SharedArrayBuffer stayed on -> Visibility: Public only after the game runs.
    * **vercel** - Vercel rejects files over **100 MB**, and the game `.wasm` is bigger raw (e.g. 133 MB). So the
      script uploads `<Game>.wasm.br` **instead of** `<Game>.wasm` (and any other >100 MB file that has a `.br`
      sibling) and serves it at the original URL: `vercel.json` gets a `rewrites` entry (`/<path>.wasm` ->
@@ -120,7 +132,8 @@ worker's Cache Storage paths pass 260 characters: the run fails with `The game s
 ## 5. Report
 
 Page/URL or archive path, what was uploaded/packed (files, raw size, zip size), boot test result (READY), warnings,
-and the manual itch.io settings if the target was itch.
+and for itch: the channel row (or "still processing"), the page visibility, and - after a first push - the embed
+error text above with the steps that remove it.
 **Time**: the total from the script's `Time:` block and how long the upload / zip itself took.
 If something fails, show the tool's error; the usual causes are a missing login, a Development build, host limits
 or a stale skill copy (the script warns; fix with `devops_ue\skills\install_skills.bat`).

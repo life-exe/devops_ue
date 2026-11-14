@@ -7,6 +7,12 @@
 | `ue-check-env` | Checks the machine: UE, Visual Studio C++, Git/LFS, Python, Playwright, emsdk, Node.js, Vercel CLI, GitHub CLI, butler, long paths, disk space |
 | `ue-install-env` | Installs what is missing (Git, LFS, gh, Node.js, Vercel CLI, butler, Python, clang-format, emsdk, Playwright), then re-checks |
 | `ue-create-project` | Creates a new UE5 project (C++/Blueprint, empty MainLevel or Unreal template) wired up with devops_ue |
+| `ue-upgrade-engine` | Moves a project to another engine version (uproject, config.bat, Target.cs), builds it, lists errors/deprecations to fix |
+| `ue-run-tests` | Builds and runs automation tests headless, reports failures; coverage, JUnit, new spec/test files |
+| `ue-package` | Packages Game/Client/Server for Win64/Linux with pre-checks and a size/exe report |
+| `ue-docs` | Doxygen documentation with the devops_ue themes and UE macro filter |
+| `ue-clean` | Removes Intermediate/Binaries/DDC/... with a size report (Saved, Build, global DDC opt-in) |
+| `ue-content-audit` | Content size by folder/type/class, largest packages, unreferenced candidates, big textures, redirectors |
 | `ue-web-setup` | Sets a UE 5.9+ project up for the web (Wasm): emsdk, .uproject plugin rules, Wasm settings, C++ module for BP projects, SDK check, build/package |
 | `ue-web-deploy` | Installs butler / Vercel CLI / GitHub CLI and deploys a Wasm build to itch.io, Vercel or a GitHub release |
 

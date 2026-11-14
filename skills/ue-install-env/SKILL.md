@@ -26,11 +26,13 @@ Talk to the user in their language. Installing changes the machine: **always pla
 ## 2. Install
 
 Run with `-Tools <chosen,comma,separated>` (keys: `git, gitlfs, gituser, gh, node, vercel, butler, python,
-clangformat, emsdk, playwright`). Installs run in a safe order (node before vercel, git before emsdk). emsdk and
+clangformat, doxygen, opencppcoverage, emsdk, playwright`). Installs run in a safe order (node before vercel, git before emsdk). emsdk and
 winget installs can take minutes: run in the background and wait for the notification.
 
 * Already installed tools are skipped, so re-running is safe.
 * Nothing is logged in: after installing, the user runs `! gh auth login`, `! vercel login`, `! butler login`.
+  Tools installed now are not on the PATH of the running Claude Code session: give the full path, e.g.
+  `! & "$env:LOCALAPPDATA\itch-butler\butler.exe" login` (the re-check table prints it), or restart Claude Code.
 * Playwright goes into the engine Python under `Program Files`; if pip fails the script prints the exact command
   for an elevated terminal.
 

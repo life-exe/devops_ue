@@ -88,6 +88,14 @@ $clang = Get-Exe 'clang-format'
 if ($clang) { Add-Row 'clang-format' 'ok' (Get-Version (Get-FirstLine $clang @('--version'))) @() 'format_all_files.bat' '' }
 else { Add-Row 'clang-format' 'missing' '' @() 'format_all_files.bat' 'winget install --id LLVM.LLVM -e  (or pip install clang-format)' }
 
+$doxygen = Get-Exe 'doxygen'; if (-not $doxygen -and (Test-Path 'C:\Program Files\doxygen\bin\doxygen.exe')) { $doxygen = 'C:\Program Files\doxygen\bin\doxygen.exe' }
+if ($doxygen) { Add-Row 'Doxygen' 'ok' (Get-Version (Get-FirstLine $doxygen @('--version'))) @() 'ue-docs' '' }
+else { Add-Row 'Doxygen' 'missing' '' @() 'ue-docs' 'winget install --id DimitriVanHeesch.Doxygen -e  (or ue-install-env -Tools doxygen)' }
+
+$occ = 'C:\Program Files\OpenCppCoverage\OpenCppCoverage.exe'
+if (Test-Path -LiteralPath $occ) { Add-Row 'OpenCppCoverage' 'ok' ((Get-Item $occ).VersionInfo.ProductVersion) @() 'ue-run-tests -Coverage' '' }
+else { Add-Row 'OpenCppCoverage' 'missing' '' @() 'ue-run-tests -Coverage' 'winget install --id OpenCppCoverage.OpenCppCoverage -e  (or ue-install-env -Tools opencppcoverage)' }
+
 # Python: the engine has its own; a system Python is only a fallback for scripts/launchers
 $py = Get-Exe 'python'; if (-not $py) { $py = Get-Exe 'py' }
 $pyVer = if ($py) { Get-Version (Get-FirstLine $py @('--version')) } else { '' }
@@ -158,7 +166,9 @@ if ($butler) {
     $prev = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
     $bv = ([regex]::Match((& $butler -V 2>&1 | ForEach-Object { "$_" } | Out-String), 'v\d+\.\d+\.\d+')).Value
     $ErrorActionPreference = $prev
-    Add-Row 'butler (itch.io)' $(if ($creds -or $env:BUTLER_API_KEY) { 'ok' } else { 'warn' }) "$bv$(if ($creds) { ', logged in' } else { ', not logged in' })" @() 'deploy to itch.io' $(if ($creds) { '' } else { 'butler login' })
+    # butler installed after this session started is not on its PATH: print a login command that runs as-is
+    $butlerLogin = if (Get-Exe 'butler') { 'butler login' } else { "& `"$butler`" login" }
+    Add-Row 'butler (itch.io)' $(if ($creds -or $env:BUTLER_API_KEY) { 'ok' } else { 'warn' }) "$bv$(if ($creds) { ', logged in' } else { ', not logged in' })$(if (-not (Get-Exe 'butler')) { ', not on PATH of this session' })" @() 'deploy to itch.io' $(if ($creds) { '' } else { $butlerLogin })
 }
 else { Add-Row 'butler (itch.io)' 'missing' '' @() 'deploy to itch.io' 'ue-web-deploy install_tools.ps1 -Tools butler' }
 

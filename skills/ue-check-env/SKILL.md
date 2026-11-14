@@ -35,4 +35,6 @@ used for and the fix command.
   * emscripten, Playwright -> `ue-web-setup` (`-InstallPlaywright`);
   * other tools -> the `winget install ...` command from the Fix column (run only after the user agrees);
   * logins (`butler login`, `vercel login`, `gh auth login`) are interactive: ask the user to run them with `!`.
+    Use the exact command from the Fix column: if butler is not on this session's PATH (installed after Claude Code
+    started), it is `& "<full path>\butler.exe" login`; new terminals / a restarted Claude Code see it on PATH.
 * Windows long paths need an elevated PowerShell - give the command, don't run it.

@@ -7,7 +7,7 @@
 # Not installed automatically (printed as manual steps): Unreal Engine, Visual Studio C++, Windows long paths (admin).
 [CmdletBinding()]
 param(
-    # git, gitlfs, gituser, gh, node, vercel, butler, python, clangformat, emsdk, playwright
+    # git, gitlfs, gituser, gh, node, vercel, butler, python, clangformat, doxygen, opencppcoverage, emsdk, playwright
     # (comma-separated works with powershell -File too, where "-Tools a,b" arrives as one string)
     [string[]]$Tools = @(),
     [switch]$WhatIf,
@@ -150,6 +150,10 @@ $catalog = [ordered]@{
                          }
                          else { Install-Winget 'LLVM.LLVM' }
                      } }
+    doxygen     = @{ Name = 'Doxygen (ue-docs)'; Test = { [bool](Get-Exe 'doxygen') -or (Test-Path 'C:\Program Files\doxygen\bin\doxygen.exe') }; How = 'winget DimitriVanHeesch.Doxygen'
+                     Install = { Install-Winget 'DimitriVanHeesch.Doxygen'; if (Test-Path 'C:\Program Files\doxygen\bin') { Add-UserPath 'C:\Program Files\doxygen\bin' } } }
+    opencppcoverage = @{ Name = 'OpenCppCoverage (test coverage)'; Test = { Test-Path 'C:\Program Files\OpenCppCoverage\OpenCppCoverage.exe' }; How = 'winget OpenCppCoverage.OpenCppCoverage'
+                     Install = { Install-Winget 'OpenCppCoverage.OpenCppCoverage' } }
     emsdk       = @{ Name = "emscripten $emsdkVersion (emsdk)"; Test = { -not $emsdkVersion -or (Get-EmsdkInstalledVersion) -eq $emsdkVersion }
                      How = "git clone emsdk to $EmsdkDir, emsdk install/activate $emsdkVersion, WASM_EMSDK_ROOT (~1 GB)"
                      Install = {

@@ -268,19 +268,52 @@ switch ($Target) {
         $butler = (Get-Command butler -ErrorAction SilentlyContinue).Source
         if (-not $butler) { $b = Join-Path $env:LOCALAPPDATA 'itch-butler\butler.exe'; if (Test-Path -LiteralPath $b) { $butler = $b } }
         if (-not $butler) { throw 'butler not found: run install_tools.ps1 -Tools butler' }
+        # butler installed after this session started is not on its PATH: give a login command that runs as-is
+        $butlerLogin = if (Get-Command butler -ErrorAction SilentlyContinue) { 'butler login' } else { "& `"$butler`" login" }
+
+        # quiet `butler status <user/game>` (without :channel, so a missing channel is not an error)
+        function Get-ItchChannelRow {
+            # butler writes UTF-8 (the √ mark); PowerShell 5.1 would decode it with the OEM code page
+            $prev = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+            $prevEnc = [Console]::OutputEncoding
+            try { [Console]::OutputEncoding = [Text.Encoding]::UTF8; $out = @(& $butler status $ItchTarget 2>&1 | ForEach-Object { "$_" }) }
+            finally { [Console]::OutputEncoding = $prevEnc; $ErrorActionPreference = $prev }
+            return ($out | Where-Object { $_ -match "^\s*\|?\s*$([regex]::Escape($ItchChannel))\s*\|" } | Select-Object -First 1)
+        }
+
         $cmdArgs = @('push', $site, "${ItchTarget}:$ItchChannel")
         if ($Version) { $cmdArgs += @('--userversion', $Version) }
         Show-Command 'butler' $cmdArgs
+        $firstPush = $false
         if (-not $DryRun) {
+            $firstPush = -not (Get-ItchChannelRow)
             $r = Invoke-Capture $butler $cmdArgs
-            if ($r[0] -ne 0) { throw "butler push failed (code $($r[0])). Not logged in? Run: butler login" }
-            Invoke-Capture $butler @('status', "${ItchTarget}:$ItchChannel") | Out-Null
+            if ($r[0] -ne 0) { throw "butler push failed (code $($r[0])). Not logged in? Run: $butlerLogin" }
+
+            # itch.io creates the channel only after it has processed the first build: wait for the build (√), up to ~2 min
+            Write-Step 'itch.io processing the build'
+            $row = $null; $deadline = (Get-Date).AddMinutes(2)
+            while ((Get-Date) -lt $deadline) {
+                $row = Get-ItchChannelRow
+                if ($row -and $row -match [regex]::Escape([string][char]0x221A)) { break }  # √ = processed
+                Start-Sleep -Seconds 10
+            }
+            if ($row -and $row -match [regex]::Escape([string][char]0x221A)) { Write-Host "  processed: $($row.Trim())" -ForegroundColor Green }
+            elseif ($row) { Add-Warning "itch.io is still processing the build: $($row.Trim()) - check later with: butler status $ItchTarget" }
+            else { Add-Warning "itch.io is still processing the first build (the '$ItchChannel' channel appears when it is done) - check later with: butler status $ItchTarget" }
         }
         Write-Host ''
-        Write-Host 'On the itch.io game page (Edit game) once:' -ForegroundColor Yellow
-        Write-Host "  - Kind of project: HTML; mark the '$ItchChannel' upload 'This file will be played in the browser'" -ForegroundColor Yellow
-        Write-Host '  - Embed options: SharedArrayBuffer support = ON (required for Wasm threads), save and check it stayed on' -ForegroundColor Yellow
-        Write-Host '  - Viewport e.g. 1280x720, enable Fullscreen button' -ForegroundColor Yellow
+        if ($firstPush -or $DryRun) {
+            Write-Host "First upload to this channel: until the page is configured, itch.io shows" -ForegroundColor Yellow
+            Write-Host "  `"There was a problem loading your project: You've selected a HTML5 game but haven't configured how your project is embedded`"" -ForegroundColor Yellow
+            Write-Host "That is expected. Fix it once on itch.io (Edit game):" -ForegroundColor Yellow
+        }
+        else { Write-Host 'Check once on the itch.io game page (Edit game):' -ForegroundColor Yellow }
+        Write-Host '  1. Kind of project: HTML' -ForegroundColor Yellow
+        Write-Host "  2. Uploads: mark the '$ItchChannel' upload 'This file will be played in the browser'" -ForegroundColor Yellow
+        Write-Host '  3. Embed options: viewport e.g. 1280x720, SharedArrayBuffer support = ON (Wasm threads), Fullscreen button' -ForegroundColor Yellow
+        Write-Host '  4. Save, reopen Edit game and check SharedArrayBuffer support stayed on' -ForegroundColor Yellow
+        Write-Host '  5. Visibility & access: keep Draft/Restricted until the game runs in the browser, then Public' -ForegroundColor Yellow
         $user, $game = $ItchTarget -split '/', 2
         Write-Host "Page: https://$user.itch.io/$game"
     }
