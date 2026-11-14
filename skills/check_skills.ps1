@@ -10,12 +10,19 @@ $ErrorActionPreference = 'Stop'
 $skillsSrc = $PSScriptRoot
 if (-not $ProjectDir) { $ProjectDir = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path }
 
+# SHA256 that ignores CRLF/LF differences in text files (core.autocrlf differs between machines)
+function Get-ContentHash([string]$Path) {
+    $bytes = [IO.File]::ReadAllBytes($Path)
+    if ([Array]::IndexOf($bytes, [byte]0) -lt 0) { $bytes = [Text.Encoding]::UTF8.GetBytes([Text.Encoding]::UTF8.GetString($bytes).Replace("`r`n", "`n")) }
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try { return [BitConverter]::ToString($sha.ComputeHash($bytes)).Replace('-', '') } finally { $sha.Dispose() }
+}
 function Get-SkillFileHashes([string]$Dir) {
     $root = (Resolve-Path -LiteralPath $Dir).Path.TrimEnd('\')
     $map = @{}
     foreach ($f in Get-ChildItem -LiteralPath $root -Recurse -File -Force) {
         if ($f.Name -eq 'devops_source.txt' -or $f.FullName -match '\\__pycache__\\') { continue }
-        $map[$f.FullName.Substring($root.Length + 1)] = (Get-FileHash -LiteralPath $f.FullName -Algorithm SHA256).Hash
+        $map[$f.FullName.Substring($root.Length + 1)] = (Get-ContentHash $f.FullName)
     }
     return $map
 }

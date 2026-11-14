@@ -68,6 +68,13 @@ function Write-Timing([string]$Result = 'total') {
 trap { Write-Timing 'total (FAILED)'; break }
 function Add-Warning([string]$Text) { [void]$Warnings.Add($Text); Write-Host "WARNING: $Text" -ForegroundColor Yellow }
 
+# SHA256 that ignores CRLF/LF differences in text files (core.autocrlf differs between machines)
+function Get-ContentHash([string]$Path) {
+    $bytes = [IO.File]::ReadAllBytes($Path)
+    if ([Array]::IndexOf($bytes, [byte]0) -lt 0) { $bytes = [Text.Encoding]::UTF8.GetBytes([Text.Encoding]::UTF8.GetString($bytes).Replace("`r`n", "`n")) }
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try { return [BitConverter]::ToString($sha.ComputeHash($bytes)).Replace('-', '') } finally { $sha.Dispose() }
+}
 # warns when this copy of the skill (user/project install) differs from devops_ue\skills - a stale copy
 function Test-SkillCopy([string]$DevopsRoot) {
     if (-not $DevopsRoot) { return }
@@ -81,7 +88,7 @@ function Test-SkillCopy([string]$DevopsRoot) {
         param($d)
         Get-ChildItem -LiteralPath $d -Recurse -File -Force |
             Where-Object { $_.Name -ne 'devops_source.txt' -and $_.FullName -notmatch '\\__pycache__\\' } |
-            ForEach-Object { $_.FullName.Substring($d.Length + 1) + '|' + (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash } |
+            ForEach-Object { $_.FullName.Substring($d.Length + 1) + '|' + (Get-ContentHash $_.FullName) } |
             Sort-Object
     }
     if (Compare-Object @(& $list $src) @(& $list $skillDir)) {

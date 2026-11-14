@@ -1,0 +1,3 @@
+# cmd.exe misparses LF-only batch files (labels, blocks): always check them out with CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
