@@ -47,7 +47,8 @@ space of about **2x the stage** (zip + extracted copy for the test), and Playwri
 
 `deploy_web.ps1` takes the stage (folder with `index.html`) from `<project>\Build\Wasm\Wasm`, `Build\Wasm` or
 `Saved\StagedBuilds\Wasm`, in that order; `-Stage <folder>` overrides. No build yet -> package first:
-`package_wasm.bat Shipping` (or the `ue-web-setup` skill with `-Package Shipping`). Long: run in the background.
+the `ue-package` skill with `-Platform Wasm` (Shipping by default; it also runs the release scan), or
+`package_wasm.bat Shipping`. Long: run in the background.
 An engine `FileOpenOrder\` folder in the stage is never uploaded (packaging moves it to `Build\Wasm-FileOpenOrder`).
 
 ## 3. Ask (AskUserQuestion)

@@ -1,21 +1,21 @@
 ---
 name: ue-package
-description: Package an Unreal project with BuildCookRun - Game, Client, Server or Client+Server targets for Win64 or Linux, Development/Shipping/DebugGame/Test - with checks before (source-built engine for client/server, Linux toolchain, target rules created when missing) and a report after (output folder, size, executables, first errors from the log). Use when asked to package, build a release, make a dedicated server or client build. Web builds go to ue-web-setup.
+description: Package an Unreal project with BuildCookRun - Game, Client, Server or Client+Server targets for Win64 or Linux, and web (Wasm) builds, Development/Shipping/DebugGame/Test - with checks before (source-built engine for client/server, Linux toolchain, Wasm platform and emsdk, target rules created when missing) and a report after (output folder, size, executables, first errors from the log; for Wasm the site size, largest files and the engine's check_stage.py release scan). Use when asked to package, build a release, make a dedicated server, client or web/browser build. First-time web setup is ue-web-setup, uploading is ue-web-deploy.
 ---
 
 # Package a project
 
 ```
-powershell -NoProfile -ExecutionPolicy Bypass -File "<skill dir>/scripts/package.ps1" -ProjectPath "<project>" [-Target Game|Client|Server|ClientServer] [-Platform Win64|Linux] [-Configuration Development|Shipping|DebugGame|Test] [-Maps "/Game/A+/Game/B"] [-OutDir <dir>] [-Clean] [-WhatIf]
+powershell -NoProfile -ExecutionPolicy Bypass -File "<skill dir>/scripts/package.ps1" -ProjectPath "<project>" [-Target Game|Client|Server|ClientServer] [-Platform Win64|Linux|Wasm] [-Configuration Development|Shipping|DebugGame|Test] [-Maps "/Game/A+/Game/B"] [-OutDir <dir>] [-Clean] [-WhatIf]
 ```
 
-Talk to the user in their language. Web (Wasm) -> use `ue-web-setup` / `package_wasm.bat` instead.
+Talk to the user in their language.
 
 ## Ask (AskUserQuestion)
 
 * **Target**: Game (default) / Dedicated Server / Client / Client + Server.
-* **Configuration**: Development (testing) / Shipping (players).
-* **Platform**: Win64 (default) / Linux (needs the cross-compile toolchain and `LINUX_MULTIARCH_ROOT`).
+* **Configuration**: Development (testing) / Shipping (players). Wasm defaults to Shipping.
+* **Platform**: Win64 (default) / Linux (needs the cross-compile toolchain and `LINUX_MULTIARCH_ROOT`) / Wasm (web).
 * Maps only if the user wants a subset (otherwise the project's packaging settings decide).
 
 Show the `-WhatIf` plan (the exact BuildCookRun line), then run. Packaging takes minutes to an hour: run in the
@@ -31,9 +31,26 @@ date with the run start).
   to commit them).
 * Linux without `LINUX_MULTIARCH_ROOT` stops with the toolchain hint.
 
+## Web (Wasm)
+
+`-Platform Wasm` runs the same BuildCookRun line as `devops_ue\package\package_wasm.bat` (`-iostore -allmaps`,
+headless cooker) into `Build\Wasm`. Game target only.
+
+* Before: the engine must have the Wasm platform (UE 5.9+) and `WASM_EMSDK_ROOT` (or `C:\emsdk`). Missing -> the
+  project was never set up for the web: run `ue-web-setup` first (emsdk, plugins, Wasm settings).
+* After: `FileOpenOrder\` is moved out of the public folder to `Build\Wasm-FileOpenOrder` (engine open-order logs with
+  build-machine paths), the site size is reported raw and as transferred with `.br`, plus the largest `.wasm/.ucas`,
+  then the engine's `check_stage.py` runs (manifests, sha1s, debug files, release scan).
+* A failed `check_stage.py` does not fail the package, but `ue-web-deploy` refuses the build for a public host. A
+  `FINDING build-machine path` inside `.ucas/.pak` comes from asset metadata baked into the cook - e.g. a `FontFace`
+  `SourceFilename` (`C:\Users\<name>\Downloads\Font.ttf`): clear it in the asset (editor Python
+  `set_editor_property("source_filename", "")` + save), commit, package again. The warning about Epic's
+  `F:\Perforce\Releases\4.24\...DroidSansFallback.ttf` is stock engine content and does not block.
+* Next: `devops_ue\run\run_wasm.bat` to play locally, `ue-web-deploy` to upload.
+
 ## Report
 
-Output folder(s) (`Build\Windows`, `WindowsServer`, `WindowsClient`, `Linux`, ...), size, the executables to run, for
+Output folder(s) (`Build\Windows`, `WindowsServer`, `WindowsClient`, `Linux`, `Wasm`, ...), size, the executables to run, for
 failures the first errors from `Saved\Package\<target>-<platform>-<config>.log` and the likely cause (compile error,
 cook error with the asset name, missing SDK), warnings, the `Time:` block. Running a server + clients locally:
 `devops_ue\run\run_server.bat`, `run_2_clients.bat`, `run_listen_server.bat`.

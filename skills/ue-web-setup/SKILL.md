@@ -103,4 +103,5 @@ The same applies to a folder a zip is extracted to for a test.
 * **Time**: the total from the script's `Time:` block and the longest steps (emsdk install, editor build, packaging).
 * emsdk was just installed -> the editor and open terminals must be restarted (they read `WASM_EMSDK_ROOT` at start).
 * Next steps: run locally with `run_wasm.bat` (never open `index.html` from disk), package with
-  `package_wasm.bat Shipping` for anything public, deploy with the `ue-web-deploy` skill.
+  the `ue-package` skill (`-Platform Wasm`, Shipping) or `package_wasm.bat Shipping` for anything public, deploy with
+  the `ue-web-deploy` skill.
