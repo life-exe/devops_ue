@@ -26,6 +26,12 @@ param(
     [switch]$Prod,
     # after a Vercel deploy: run the engine boot test (webrun.py --url) on the live URL (needs Playwright)
     [switch]$TestDeploy,
+    # Vercel: link preview (OpenGraph / Twitter card) - image copied as og.<ext>, meta tags added to the uploaded
+    # index.html (the stage is not changed). og:image must be absolute: -SiteUrl, else https://<project>.vercel.app (-Prod)
+    [string]$OgImage = '',
+    [string]$OgTitle = '',
+    [string]$OgDescription = '',
+    [string]$SiteUrl = '',
     # GitHub
     [string]$GitHubTag = '',
     [string]$GitHubRepo = '',
@@ -202,6 +208,7 @@ if ($WasmTools) {
 # ---------------------------------------------------------------------------------------------
 Write-Step "Preparing upload folder for $Target"
 
+if ($OgImage -and $Target -ne 'vercel') { Add-Warning "-OgImage is used only for -Target vercel (itch.io: set the cover image on the game page)" }
 $deployRoot = Join-Path $ProjectRoot "Saved\WebDeploy\$Target"
 $site = Join-Path $deployRoot 'site'
 New-Item -ItemType Directory -Force -Path $site | Out-Null
@@ -380,18 +387,73 @@ switch ($Target) {
         [IO.File]::WriteAllText((Join-Path $site 'vercel.json'), ($vercelJson | ConvertTo-Json -Depth 6), $Utf8NoBom)
         # vercel link writes .env.local (VERCEL_OIDC_TOKEN) into this folder: never upload it
         [IO.File]::WriteAllText((Join-Path $site '.vercelignore'), ".env*`n.vercel`n", $Utf8NoBom)
+        if (-not $VercelProject) { $VercelProject = ($ProjectName.ToLowerInvariant() -replace '[^a-z0-9-]', '-').Trim('-') }
+
+        # link preview: og.<ext> + OpenGraph/Twitter meta in the uploaded index.html (index.html is in no manifest:
+        # wasm-manifest.json / wasm-cache.json sha1s stay valid). Crawlers fetch server-side, COEP/CORP don't affect them.
+        $ogUrl = ''
+        if ($OgImage) {
+            if (-not (Test-Path -LiteralPath $OgImage)) { throw "-OgImage not found: $OgImage" }
+            $ogExt = [IO.Path]::GetExtension($OgImage).ToLowerInvariant()
+            if ($ogExt -notin '.png', '.jpg', '.jpeg', '.webp') { throw '-OgImage must be .png, .jpg or .webp' }
+            $ogBytes = (Get-Item -LiteralPath $OgImage).Length
+            if ($ogBytes -gt 5MB) { Add-Warning "OG image is $(Format-Size $ogBytes): X/Twitter ignores images over 5 MB, keep it under ~1 MB" }
+            $base = if ($SiteUrl) { $SiteUrl.TrimEnd('/') } elseif ($Prod) { "https://$VercelProject.vercel.app" } else { '' }
+            if (-not $base) { Add-Warning 'OG tags skipped: og:image needs an absolute URL - deploy with -Prod (https://<project>.vercel.app) or pass -SiteUrl' }
+            else {
+                $ogName = "og$ogExt"
+                Copy-Item -LiteralPath $OgImage -Destination (Join-Path $site $ogName) -Force
+                $ogUrl = "$base/$ogName"
+                $w = 0; $h = 0
+                try { Add-Type -AssemblyName System.Drawing; $img = [Drawing.Image]::FromFile((Resolve-Path -LiteralPath $OgImage).Path); $w = $img.Width; $h = $img.Height; $img.Dispose() } catch { }
+                if ($w -and $h -and [math]::Abs($w / $h - 1.91) -gt 0.25 -and [math]::Abs($w / $h - 16 / 9) -gt 0.05) { Add-Warning "OG image is ${w}x${h}: previews crop to ~1.91:1 (1200x630 is the usual size)" }
+                $title = if ($OgTitle) { $OgTitle } else { $ProjectName }
+                $esc = { param($s) [Net.WebUtility]::HtmlEncode($s) }
+                $tags = New-Object System.Collections.ArrayList
+                [void]$tags.Add("<meta property=`"og:type`" content=`"website`">")
+                [void]$tags.Add("<meta property=`"og:url`" content=`"$(& $esc "$base/")`">")
+                [void]$tags.Add("<meta property=`"og:title`" content=`"$(& $esc $title)`">")
+                if ($OgDescription) {
+                    [void]$tags.Add("<meta name=`"description`" content=`"$(& $esc $OgDescription)`">")
+                    [void]$tags.Add("<meta property=`"og:description`" content=`"$(& $esc $OgDescription)`">")
+                }
+                [void]$tags.Add("<meta property=`"og:image`" content=`"$(& $esc $ogUrl)`">")
+                if ($w -and $h) { [void]$tags.Add("<meta property=`"og:image:width`" content=`"$w`"><meta property=`"og:image:height`" content=`"$h`">") }
+                [void]$tags.Add("<meta property=`"og:image:alt`" content=`"$(& $esc $title)`">")
+                [void]$tags.Add("<meta name=`"twitter:card`" content=`"summary_large_image`">")
+                [void]$tags.Add("<meta name=`"twitter:title`" content=`"$(& $esc $title)`">")
+                if ($OgDescription) { [void]$tags.Add("<meta name=`"twitter:description`" content=`"$(& $esc $OgDescription)`">") }
+                [void]$tags.Add("<meta name=`"twitter:image`" content=`"$(& $esc $ogUrl)`">")
+                $indexPath = Join-Path $site 'index.html'
+                $html = [IO.File]::ReadAllText($indexPath)
+                $i = $html.IndexOf('</head>', [StringComparison]::OrdinalIgnoreCase)
+                if ($i -lt 0) { throw 'index.html has no </head>: cannot add the OG tags' }
+                $html = $html.Substring(0, $i) + "<!-- link preview (deploy_web.ps1) -->`n" + ($tags -join "`n") + "`n" + $html.Substring($i)
+                [IO.File]::WriteAllText($indexPath, $html, $Utf8NoBom)
+                Write-Host ("  link preview: {0} ({1}{2}), og:image {3}" -f $ogName, (Format-Size $ogBytes), $(if ($w) { ", ${w}x${h}" } else { '' }), $ogUrl)
+            }
+        }
+        elseif ($OgTitle -or $OgDescription) { Add-Warning '-OgTitle/-OgDescription need -OgImage: no link preview tags added' }
+
         $final = Get-SiteFiles
         Write-Host ("  vercel.json written (COOP/COEP/CORP, no-cache, MIME, {0} .br rewrite(s)); .vercelignore: .env*, .vercel" -f $rewrites.Count)
         Write-Host ("  upload: {0} files, {1}, largest {2}" -f $final.Count, (Format-Size (($final | Measure-Object Length -Sum).Sum)), (Format-Size (($final | Measure-Object Length -Maximum).Maximum)))
 
-        if (-not $VercelProject) { $VercelProject = ($ProjectName.ToLowerInvariant() -replace '[^a-z0-9-]', '-').Trim('-') }
-        $scopeArgs = if ($VercelScope) { @('--scope', $VercelScope) } else { @() }
+        $scopeArgs =if ($VercelScope) { @('--scope', $VercelScope) } else { @() }
         if (-not (Test-Path -LiteralPath (Join-Path $site '.vercel\project.json'))) {
             $linkArgs = @('link', '--yes', '--cwd', $site, '--project', $VercelProject) + $scopeArgs
             Show-Command 'vercel' $linkArgs
             if (-not $DryRun) {
                 $r = Invoke-Capture 'vercel' $linkArgs
                 if ($r[0] -ne 0) { throw "vercel link failed (code $($r[0])). Not logged in? Run: vercel login" }
+                # the site folder sits inside the game repo: vercel link connects that repo to the project (auto-deploy
+                # of the source repo on every push - never wanted for a prebuilt stage). No flag skips it: disconnect.
+                if ($r[1] -match 'Connecting (GitHub|GitLab|Bitbucket) repository') {
+                    $prev = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+                    & vercel git disconnect --yes --cwd $site @scopeArgs *> $null
+                    $ErrorActionPreference = $prev
+                    Write-Host '  git repository connection removed from the Vercel project (deploys come only from this script)'
+                }
             }
         }
         $deployArgs = @('deploy', '--cwd', $site, '--yes') + $scopeArgs
@@ -401,6 +463,18 @@ switch ($Target) {
             $r = Invoke-Capture 'vercel' $deployArgs
             if ($r[0] -ne 0) { throw "vercel deploy failed (code $($r[0]))" }
             $url = ([regex]::Matches($r[1], 'https://[^\s]+\.vercel\.app') | Select-Object -Last 1).Value
+            if ($ogUrl) {
+                # the default https://<project>.vercel.app is right only if Vercel gave the project that domain;
+                # right after a first deploy the alias needs a few seconds (404 meanwhile) - retry for ~40 s
+                $resp = $null; $ogErr = ''
+                for ($try = 0; $try -lt 8 -and -not $resp; $try++) {
+                    if ($try) { Start-Sleep -Seconds 5 }
+                    try { $resp = Invoke-WebRequest -Uri $ogUrl -Method Head -UseBasicParsing -TimeoutSec 20 } catch { $ogErr = $_.Exception.Message }
+                }
+                if ($resp) { Write-Host "  og:image reachable: $ogUrl ($($resp.Headers['Content-Type']))" -ForegroundColor Green }
+                else { Add-Warning "og:image $ogUrl is not reachable ($ogErr): the production domain differs? Redeploy with -SiteUrl https://<your domain>" }
+                Write-Host '  check the preview: https://www.opengraph.xyz/url/ or paste the link in Telegram/Discord (they cache previews)'
+            }
             if ($url) {
                 Write-Host "URL: $url"
                 if ($WasmTools) {

@@ -59,7 +59,8 @@ An engine `FileOpenOrder\` folder in the stage is never uploaded (packaging move
   itch.io Edit game -> Visibility & access) or a release (**Public** - the build is public the moment the push
   finishes). For a new page recommend Draft, and Public only after the game ran in the browser. Repeat it in the
   confirmation before the real upload ("the page is Draft / Public: ... will see this build").
-* Vercel: project name (default: project name in kebab case), team scope if not personal, preview or production (`-Prod`).
+* Vercel: project name (default: project name in kebab case), team scope if not personal, preview or production (`-Prod`),
+  and optionally a link preview image (`-OgImage`, with title/description) for sharing the URL.
 * GitHub: tag (default `web-<prefix>`), repo if not the project's `origin`.
 * zip / GitHub: run the boot test on the archive (`-TestZip`)?
 
@@ -67,7 +68,7 @@ An engine `FileOpenOrder\` folder in the stage is never uploaded (packaging move
 
 ```
 deploy_web.ps1 -ProjectPath "<project>" -Target itch   -ItchTarget user/game [-ItchChannel html5] [-Version 1.0.0] [-DryRun]
-deploy_web.ps1 -ProjectPath "<project>" -Target vercel [-VercelProject name] [-VercelScope team] [-Prod] [-TestDeploy] [-DryRun]
+deploy_web.ps1 -ProjectPath "<project>" -Target vercel [-VercelProject name] [-VercelScope team] [-Prod] [-TestDeploy] [-OgImage <png/jpg> [-OgTitle ..] [-OgDescription ..] [-SiteUrl https://domain]] [-DryRun]
 deploy_web.ps1 -ProjectPath "<project>" -Target github [-GitHubTag web-1.0] [-GitHubRepo owner/repo] [-TestZip] [-DryRun]
 deploy_web.ps1 -ProjectPath "<project>" -Target zip    [-Prefix v1] [-TestZip]
 ```
@@ -95,10 +96,18 @@ What happens:
      an error (use another host or more pak chunks). Everything else is uploaded raw (Vercel compresses it and
      answers Range with 206). The limit is checked after the swap. Also: COOP/COEP/CORP, `Cache-Control: no-cache`,
      MIME types; `.vercelignore` (`.env*`, `.vercel`) is always written - `vercel link` puts `.env.local` with a
-     token into the site folder. Then `vercel link` on the first run, `vercel deploy [--prod]`, the engine's
+     token into the site folder. Then `vercel link` on the first run (it tries to connect the game's git repo to the
+     project because the site folder is inside it - the script disconnects it again: deploys come only from here), `vercel deploy [--prod]`, the engine's
      `webdoctor.py` on the live URL (headers, MIME, ranges, isolation, "whole-file .wasm GET is complete (br)"),
      and with `-TestDeploy` the boot test `webrun.py --url <url>/index.html` (`--out %TEMP%\wr_vercel`).
      Preview URLs can be behind Vercel Authentication - then webdoctor fails; check in a browser or use `-Prod`.
+     **Link preview** (`-OgImage`): the image is copied to the site as `og.<ext>` and OpenGraph + Twitter card tags
+     (`og:title/description/image/url`, image size, `twitter:card=summary_large_image`, `description`) go before
+     `</head>` of the **uploaded** `index.html` - the stage stays untouched (`index.html` is in no manifest).
+     `og:image` must be absolute: `-SiteUrl` or, with `-Prod`, `https://<project>.vercel.app`; without either the tags
+     are skipped with a warning (preview URLs are behind auth anyway). After the deploy the script HEADs the image
+     URL and warns if it is unreachable (Vercel gave the project another domain -> `-SiteUrl`). Image: PNG/JPG under
+     ~1 MB, 1200x630 (1.91:1) or 16:9. Messengers cache previews: check with opengraph.xyz.
    * **zip** - see below; nothing is uploaded.
    * **github** - builds the zip (below) and creates/updates a release (`gh release create/upload`). A release is a
      download, not a hosted page: players unzip and run it with a local server (`run_wasm.bat`).
