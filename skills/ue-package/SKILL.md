@@ -33,13 +33,16 @@ date with the run start).
 
 ## Web (Wasm)
 
-`-Platform Wasm` runs the same BuildCookRun line as `devops_ue\package\package_wasm.bat` (`-iostore -allmaps`,
-headless cooker) into `Build\Wasm`. Game target only.
+`-Platform Wasm` runs the same BuildCookRun line as `devops_ue\package\package_wasm.bat` (`-iostore`, headless
+cooker) into `Build\Wasm`. Game target only. Maps: `-Maps`, else the project's `+MapsToCook` in
+`Config\DefaultGame.ini`, else `-allmaps` (which also cooks marketplace demo levels - suggest listing the game maps).
 
 * Before: the engine must have the Wasm platform (UE 5.9+) and `WASM_EMSDK_ROOT` (or `C:\emsdk`). Missing -> the
   project was never set up for the web: run `ue-web-setup` first (emsdk, plugins, Wasm settings).
 * After: `FileOpenOrder\` is moved out of the public folder to `Build\Wasm-FileOpenOrder` (engine open-order logs with
-  build-machine paths), the site size is reported raw and as transferred with `.br`, plus the largest `.wasm/.ucas`,
+  build-machine paths), the project's page extras are added when `devops_data\web` exists (`head.html` before
+  `</head>` between `project-head` markers - OpenGraph tags etc., `public\*` next to `index.html`; done by
+  `devops_ue\package\web_page_extras.ps1`, the stale `index.html.br` is dropped), the site size is reported raw and as transferred with `.br`, plus the largest `.wasm/.ucas`,
   then the engine's `check_stage.py` runs (manifests, sha1s, debug files, release scan).
 * A failed `check_stage.py` does not fail the package, but `ue-web-deploy` refuses the build for a public host. A
   `FINDING build-machine path` inside `.ucas/.pak` comes from asset metadata baked into the cook - e.g. a `FontFace`

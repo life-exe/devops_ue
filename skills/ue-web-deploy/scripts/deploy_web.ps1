@@ -32,6 +32,8 @@ param(
     [string]$OgTitle = '',
     [string]$OgDescription = '',
     [string]$SiteUrl = '',
+    # with -OgImage: also write devops_data\web\head.html + public\og.<ext>, added to every later web package
+    [switch]$OgSave,
     # GitHub
     [string]$GitHubTag = '',
     [string]$GitHubRepo = '',
@@ -424,16 +426,36 @@ switch ($Target) {
                 [void]$tags.Add("<meta name=`"twitter:title`" content=`"$(& $esc $title)`">")
                 if ($OgDescription) { [void]$tags.Add("<meta name=`"twitter:description`" content=`"$(& $esc $OgDescription)`">") }
                 [void]$tags.Add("<meta name=`"twitter:image`" content=`"$(& $esc $ogUrl)`">")
+                # same markers as devops_ue\package\web_page_extras.ps1 (devops_data\web\head.html): a block the page
+                # already got at packaging is replaced, never duplicated
+                $begin = '<!-- project-head:begin -->'; $end = '<!-- project-head:end -->'
                 $indexPath = Join-Path $site 'index.html'
                 $html = [IO.File]::ReadAllText($indexPath)
+                if ($html.Contains($begin)) { Write-Host '  the page already has a project-head block (devops_data\web): replaced by -OgImage' }
+                $html = [regex]::Replace($html, '(?s)\r?\n?' + [regex]::Escape($begin) + '.*?' + [regex]::Escape($end) + '\r?\n?', '')
                 $i = $html.IndexOf('</head>', [StringComparison]::OrdinalIgnoreCase)
                 if ($i -lt 0) { throw 'index.html has no </head>: cannot add the OG tags' }
-                $html = $html.Substring(0, $i) + "<!-- link preview (deploy_web.ps1) -->`n" + ($tags -join "`n") + "`n" + $html.Substring($i)
+                $html = $html.Insert($i, $begin + "`n" + ($tags -join "`n") + "`n" + $end + "`n")
                 [IO.File]::WriteAllText($indexPath, $html, $Utf8NoBom)
                 Write-Host ("  link preview: {0} ({1}{2}), og:image {3}" -f $ogName, (Format-Size $ogBytes), $(if ($w) { ", ${w}x${h}" } else { '' }), $ogUrl)
+
+                # -OgSave: keep it in the project (devops_data\web), so every later package (ue-package -Platform Wasm,
+                # package_wasm.bat) has the preview and later deploys need no -Og* arguments
+                if ($OgSave) {
+                    $webDir = Join-Path $ProjectRoot 'devops_data\web'
+                    New-Item -ItemType Directory -Force -Path (Join-Path $webDir 'public') | Out-Null
+                    Copy-Item -LiteralPath $OgImage -Destination (Join-Path $webDir "public\$ogName") -Force
+                    $headText = "<!-- inserted before </head> of index.html by devops_ue\package\web_page_extras.ps1 (package_wasm.bat, ue-package); files in public\ are copied next to index.html -->`n" + ($tags -join "`n") + "`n"
+                    [IO.File]::WriteAllText((Join-Path $webDir 'head.html'), $headText, $Utf8NoBom)
+                    Write-Host "  saved to the project: $webDir\head.html, public\$ogName (commit them)" -ForegroundColor Green
+                }
             }
         }
-        elseif ($OgTitle -or $OgDescription) { Add-Warning '-OgTitle/-OgDescription need -OgImage: no link preview tags added' }
+        elseif ($OgTitle -or $OgDescription -or $OgSave) { Add-Warning '-OgTitle/-OgDescription/-OgSave need -OgImage: no link preview tags added' }
+
+        # og:image of the final page (from -OgImage or devops_data\web at packaging) - checked after the deploy
+        $ogUrl = ([regex]::Match([IO.File]::ReadAllText((Join-Path $site 'index.html')), '<meta property="og:image" content="([^"]+)"')).Groups[1].Value
+        if ($ogUrl -and -not $OgImage) { Write-Host "  link preview from the page (devops_data\web): og:image $ogUrl" }
 
         $final = Get-SiteFiles
         Write-Host ("  vercel.json written (COOP/COEP/CORP, no-cache, MIME, {0} .br rewrite(s)); .vercelignore: .env*, .vercel" -f $rewrites.Count)

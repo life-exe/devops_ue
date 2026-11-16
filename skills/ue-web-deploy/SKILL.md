@@ -68,7 +68,7 @@ An engine `FileOpenOrder\` folder in the stage is never uploaded (packaging move
 
 ```
 deploy_web.ps1 -ProjectPath "<project>" -Target itch   -ItchTarget user/game [-ItchChannel html5] [-Version 1.0.0] [-DryRun]
-deploy_web.ps1 -ProjectPath "<project>" -Target vercel [-VercelProject name] [-VercelScope team] [-Prod] [-TestDeploy] [-OgImage <png/jpg> [-OgTitle ..] [-OgDescription ..] [-SiteUrl https://domain]] [-DryRun]
+deploy_web.ps1 -ProjectPath "<project>" -Target vercel [-VercelProject name] [-VercelScope team] [-Prod] [-TestDeploy] [-OgImage <png/jpg> [-OgTitle ..] [-OgDescription ..] [-SiteUrl https://domain] [-OgSave]] [-DryRun]
 deploy_web.ps1 -ProjectPath "<project>" -Target github [-GitHubTag web-1.0] [-GitHubRepo owner/repo] [-TestZip] [-DryRun]
 deploy_web.ps1 -ProjectPath "<project>" -Target zip    [-Prefix v1] [-TestZip]
 ```
@@ -101,13 +101,19 @@ What happens:
      `webdoctor.py` on the live URL (headers, MIME, ranges, isolation, "whole-file .wasm GET is complete (br)"),
      and with `-TestDeploy` the boot test `webrun.py --url <url>/index.html` (`--out %TEMP%\wr_vercel`).
      Preview URLs can be behind Vercel Authentication - then webdoctor fails; check in a browser or use `-Prod`.
-     **Link preview** (`-OgImage`): the image is copied to the site as `og.<ext>` and OpenGraph + Twitter card tags
-     (`og:title/description/image/url`, image size, `twitter:card=summary_large_image`, `description`) go before
-     `</head>` of the **uploaded** `index.html` - the stage stays untouched (`index.html` is in no manifest).
-     `og:image` must be absolute: `-SiteUrl` or, with `-Prod`, `https://<project>.vercel.app`; without either the tags
-     are skipped with a warning (preview URLs are behind auth anyway). After the deploy the script HEADs the image
-     URL and warns if it is unreachable (Vercel gave the project another domain -> `-SiteUrl`). Image: PNG/JPG under
-     ~1 MB, 1200x630 (1.91:1) or 16:9. Messengers cache previews: check with opengraph.xyz.
+     **Link preview**: the project's own place for it is `devops_data\web\head.html` (OpenGraph/Twitter tags,
+     canonical, ...) + `devops_data\web\public\*` (the image) - packaging adds them to every web build for any host
+     (`devops_ue\package\web_page_extras.ps1`, between `<!-- project-head:begin/end -->` markers). If the project
+     has it, nothing is needed at deploy time. `-OgImage` (with `-OgTitle`, `-OgDescription`) is the quick way: the
+     image is copied to the site as `og.<ext>` and the tags (`og:title/description/image/url`, image size,
+     `twitter:card=summary_large_image`, `description`) go into the **uploaded** `index.html` between the same markers -
+     a block from `devops_data\web` is replaced, never duplicated; the stage stays untouched (`index.html` is in no
+     manifest). Add `-OgSave` to write them to `devops_data\web` too (tell the user to commit it) - recommend it for a
+     project that will be deployed again. `og:image` must be absolute: `-SiteUrl` or, with `-Prod`,
+     `https://<project>.vercel.app`; without either the tags are skipped with a warning (preview URLs are behind auth
+     anyway). After the deploy the script HEADs the page's `og:image` (whichever way it got there, with retries) and
+     warns if it is unreachable (another domain -> `-SiteUrl`). Image: PNG/JPG under ~1 MB, 1200x630 (1.91:1) or
+     16:9. Messengers cache previews: check with opengraph.xyz.
    * **zip** - see below; nothing is uploaded.
    * **github** - builds the zip (below) and creates/updates a release (`gh release create/upload`). A release is a
      download, not a hosted page: players unzip and run it with a local server (`run_wasm.bat`).

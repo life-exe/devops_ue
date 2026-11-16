@@ -173,7 +173,15 @@ $configs = switch ($Target) {
     'Server' { "-serverconfig=$Configuration -server -noclient" }
     'ClientServer' { "-clientconfig=$Configuration -serverconfig=$Configuration -client -server" }
 }
-$mapArg = if ($Maps) { "-map=`"$Maps`"" } elseif ($isWasm) { '-allmaps' } else { '' }
+# Wasm without -Maps: the project's MapsToCook (DefaultGame.ini) when it lists any, else every map (-allmaps) - as
+# package_wasm.bat does; -allmaps also cooks marketplace demo levels and their heavy content
+$mapArg = if ($Maps) { "-map=`"$Maps`"" } else { '' }
+if ($isWasm -and -not $Maps) {
+    $gameIni = Join-Path $ProjectRoot 'Config\DefaultGame.ini'
+    $mapsToCook = if (Test-Path -LiteralPath $gameIni) { @([IO.File]::ReadAllLines($gameIni) | Where-Object { $_ -match '^\+MapsToCook=' }) } else { @() }
+    if ($mapsToCook.Count -gt 0) { Write-Host "  maps   : $($mapsToCook.Count) MapsToCook from DefaultGame.ini" }
+    else { $mapArg = '-allmaps'; Write-Host '  maps   : all (-allmaps; no MapsToCook in DefaultGame.ini - list the game maps there to keep demo levels out)' }
+}
 $cleanArg = if ($Clean) { '-clean' } else { '' }
 # Wasm: IoStore containers (the loader streams .ucas/.utoc with Range requests) and a headless cooker
 $wasmArgs = if ($isWasm) { '-iostore -AdditionalCookerOptions="-unattended -nopause -nosplash -nullrhi"' } else { '' }
@@ -214,6 +222,18 @@ elseif ($isWasm) {
         if (Test-Path -LiteralPath $fooDst) { Remove-Item -LiteralPath $fooDst -Recurse -Force }
         Move-Item -LiteralPath $foo -Destination $fooDst
         Write-Host "  FileOpenOrder moved out of the public folder to $fooDst"
+    }
+
+    # project page additions kept outside the engine template: devops_data\web\head.html (OpenGraph, ...) and
+    # devops_data\web\public\* (og image, ...) - devops_ue\package\web_page_extras.ps1, as package_wasm.bat does
+    $webExtras = Join-Path $ProjectRoot 'devops_data\web'
+    if (Test-Path -LiteralPath $webExtras) {
+        $extrasPs1 = Join-Path $ProjectRoot 'devops_ue\package\web_page_extras.ps1'
+        if (Test-Path -LiteralPath $extrasPs1) {
+            & powershell -NoProfile -ExecutionPolicy Bypass -File $extrasPs1 -Stage $stage -ExtrasDir $webExtras | ForEach-Object { Write-Host "  $_" }
+            if ($LASTEXITCODE -ne 0) { Add-Warning 'web_page_extras.ps1 failed: devops_data\web was not added to the page' }
+        }
+        else { Add-Warning "devops_data\web exists, but $extrasPs1 is missing (update devops_ue): page extras not added" }
     }
 
     $files = @(Get-ChildItem -LiteralPath $stage -Recurse -File -Force)
