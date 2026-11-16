@@ -38,8 +38,18 @@ if not defined WASM_EMSDK_ROOT (
     )
 )
 
+rem Maps: the project's MapsToCook (Config\DefaultGame.ini) when it lists any, else every map (-allmaps).
+rem -allmaps also cooks the demo levels of marketplace packs and their heavy content
+set "CookMapsArg=-allmaps"
+for %%I in ("%ProjectPath%") do set "ProjectConfigGame=%%~dpIConfig\DefaultGame.ini"
+if exist "%ProjectConfigGame%" (
+    findstr /b /c:"+MapsToCook=" "%ProjectConfigGame%" >nul && set "CookMapsArg="
+)
+if defined CookMapsArg (set "CookMapsInfo=all maps") else (set "CookMapsInfo=MapsToCook from DefaultGame.ini")
+
 echo =======================================================
 echo Packaging for Wasm (Web) [%Configuration%]
+echo Maps: %CookMapsInfo%
 echo Project: %ProjectPath%
 echo Archive: %ArchivePath%\Wasm
 echo =======================================================
@@ -50,7 +60,7 @@ call "%RunUATPath%" BuildCookRun ^
   -platform=Wasm ^
   -clientconfig="%Configuration%" ^
   -archivedirectory="%ArchivePath%\Wasm" ^
-  -build -cook -stage -pak -iostore -package -archive -allmaps ^
+  -build -cook -stage -pak -iostore -package -archive %CookMapsArg% ^
   -unattended -utf8output ^
   -AdditionalCookerOptions="-unattended -nopause -nosplash -nullrhi"
 
@@ -63,6 +73,15 @@ rem the engine leaves FileOpenOrder\ (open-order logs with build machine paths) 
 rem the game doesn't use it and it fails the release scan (check_stage.py) - keep it next to Wasm-Debug
 call :moveFileOpenOrder "%ArchivePath%\Wasm\Wasm"
 call :moveFileOpenOrder "%ArchivePath%\Wasm"
+
+rem project page additions (OpenGraph tags, og image): devops_data\web\head.html and devops_data\web\public\
+if exist "%~dp0..\..\devops_data\web" (
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0web_page_extras.ps1" -Stage "%ArchivePath%\Wasm" -ExtrasDir "%~dp0..\..\devops_data\web"
+    if errorlevel 1 (
+        echo [ERROR] Adding devops_data\web to the page failed!
+        exit /b 1
+    )
+)
 
 echo [SUCCESS] Web package completed in: %ArchivePath%\Wasm
 exit /b 0
