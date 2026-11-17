@@ -1,4 +1,4 @@
----
+﻿---
 name: ue-help
 description: Help for the devops_ue skills - lists every ue-* skill with what it does, which script and parameters it has, where it is installed, and recommends the right skill for a task. Use when asked what skills / commands are available, what the agent can do for an Unreal project, how to use a skill, or which skill to pick.
 ---
@@ -27,7 +27,6 @@ entry in `summaries.ru.json`, otherwise its Russian text falls back to English.
    * project: `ue-create-project`, `ue-upgrade-engine`, `ue-clean`, `ue-content-audit`
    * code: `ue-format`, `ue-run-tests`, `ue-add-test`, `ue-docs`, `ue-plugin-create`, `ue-plugin-package`
    * build and release: `ue-target-create`, `ue-cook`, `ue-package`
-   * web: `ue-web-setup`, `ue-web-deploy`
 3. If the user described a task, name the one or two skills that fit and the next step ("run `/ue-cook`").
 4. A skill listed by the script but missing from the agent's list means the installed copy is old: run
    `devops_ue\skills\install_skills.bat` (see `check_skills.ps1`).

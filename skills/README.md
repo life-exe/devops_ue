@@ -13,8 +13,6 @@
 | `ue-docs` | Doxygen documentation with the devops_ue themes and UE macro filter |
 | `ue-clean` | Removes Intermediate/Binaries/DDC/... with a size report (Saved, Build, global DDC opt-in) |
 | `ue-content-audit` | Content size by folder/type/class, largest packages, unreferenced candidates, big textures, redirectors |
-| `ue-web-setup` | Sets a UE 5.9+ project up for the web (Wasm): emsdk, .uproject plugin rules, Wasm settings, C++ module for BP projects, SDK check, build/package |
-| `ue-web-deploy` | Installs butler / Vercel CLI / GitHub CLI and deploys a Wasm build to itch.io, Vercel or a GitHub release |
 | `ue-format` | clang-format over Source (or changed files / chosen paths / plugins), rewrites only files that differ; `-Check` for CI |
 | `ue-cook` | BuildCookRun cook only (Win64/Linux/Wasm, Game/Client/Server, incremental), reports cooked size and cook errors |
 | `ue-add-test` | Writes real automation tests for a given class (spec/legacy from the templates), runs them until green |
