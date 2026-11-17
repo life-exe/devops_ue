@@ -28,6 +28,12 @@ Talk to the user in their language. Needs a C++ module (`Source\<Name>`); the en
   `Source\`, excluded paths from `ExcludedPathForTestReport` -> `Build\Tests\Coverage\CodeCoverageReport\index.html`
   and cobertura xml (line rate printed). Missing tool -> offer `ue-install-env -Tools opencppcoverage`.
 * `-JUnit`: `Build\Tests\junit.xml` via `devops_ue\tests\ue_report_to_junit.py` (Jenkins/GitHub CI).
+* **HTML report viewer.** `Build\Tests` is wiped before every run, and the engine install has only the report template
+  without its libraries (jQuery, Bootstrap...), so the page stays empty unless `devops_ue\tests\setup_tests.bat` was run
+  once: it copies `Engine\Content\Automation` into `devops_ue\tests\data` and installs `http-server` and `bower` globally
+  (npm) + the bower libraries. The script then copies `devops_ue\tests\data` into `Build\Tests` after each run. If the
+  viewer is missing the script warns: ask the user, then run `devops_ue\tests\setup_tests.bat` (it installs global npm
+  packages, so never silently). To look at the page: `cd Build\Tests`, `http-server -p 8081`, open `http://localhost:8081`.
 
 ## Failures
 

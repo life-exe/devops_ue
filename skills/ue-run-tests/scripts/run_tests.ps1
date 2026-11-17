@@ -286,7 +286,22 @@ if ($Coverage) {
     }
     else { Add-Warning 'Coverage report was not written, see the run log' }
 }
-Write-Host "  report: $outDir (index.json, Tests.log); the HTML viewer needs a local server: devops_ue\tests\run_tests.bat flow / npx http-server"
+# The HTML report viewer (index.html + bower_components) is not in the engine install: devops_ue\tests\setup_tests.bat puts it
+# into devops_ue\tests\data. $outDir was wiped before the run, so copy the viewer back (devops_ue\tests\run_tests.bat does the same).
+$viewerSrc = Join-Path $ProjectRoot 'devops_ue\tests\data'
+if (Test-Path -LiteralPath (Join-Path $viewerSrc 'index.html')) {
+    $null = & robocopy $viewerSrc $outDir /E /NFL /NDL /NJH /NJS /NP
+    $copyCode = $LASTEXITCODE
+    $global:LASTEXITCODE = 0   # robocopy: 0-7 is success
+    if ($copyCode -ge 8) { Add-Warning "Copying the report viewer from $viewerSrc failed (robocopy code $copyCode)" }
+    elseif (-not (Test-Path -LiteralPath (Join-Path $outDir 'bower_components'))) {
+        Add-Warning "The report viewer has no bower_components, the HTML page will be empty: run devops_ue\tests\setup_tests.bat again (needs Node.js/npm)"
+    }
+}
+else {
+    Add-Warning "The HTML report viewer is not installed, the page would be empty: run devops_ue\tests\setup_tests.bat once (needs Node.js/npm; installs http-server and bower globally). Results are in index.json and Tests.log anyway"
+}
+Write-Host "  report: $outDir (index.json, Tests.log); view the HTML page through a local server: cd `"$outDir`"; http-server -p 8081 (http://localhost:8081)"
 
 $result = if ($tests.Count -eq 0) { 'NO TESTS' } elseif ($failedTests.Count) { 'FAILED' } else { 'PASSED' }
 Write-FinalStep "Tests $result"
