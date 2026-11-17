@@ -1,5 +1,6 @@
 # Copyright LifeEXE. All Rights Reserved.
-# Compares installed Claude Code skills with devops_ue\skills (SHA256 of every file, devops_source.txt ignored).
+# Compares installed skills (Claude Code .claude\skills, Codex/OpenCode/Antigravity .agents\skills, Antigravity
+# ~\.gemini\antigravity\skills) with devops_ue\skills (SHA256 of every file, devops_source.txt ignored).
 #   check_skills.ps1                       # user copies + copies of the project that holds this devops_ue
 #   check_skills.ps1 -ProjectDir C:\Game   # another project
 # Exit code 1 when an installed copy differs (stale), 0 otherwise.
@@ -28,8 +29,11 @@ function Get-SkillFileHashes([string]$Dir) {
 }
 
 $locations = @(
-    @{ Name = 'user'; Dir = Join-Path $env:USERPROFILE '.claude\skills' },
-    @{ Name = 'project'; Dir = Join-Path $ProjectDir '.claude\skills' }
+    @{ Name = 'user claude'; Dir = Join-Path $env:USERPROFILE '.claude\skills' },
+    @{ Name = 'user agents'; Dir = Join-Path $env:USERPROFILE '.agents\skills' },
+    @{ Name = 'user antigravity'; Dir = Join-Path $env:USERPROFILE '.gemini\antigravity\skills' },
+    @{ Name = 'project claude'; Dir = Join-Path $ProjectDir '.claude\skills' },
+    @{ Name = 'project agents'; Dir = Join-Path $ProjectDir '.agents\skills' }
 )
 
 $stale = 0
@@ -56,7 +60,7 @@ if (-not $rows) { Write-Host 'No installed copies of devops_ue skills found.'; e
 $rows | Format-Table Skill, Where, State, Details -AutoSize -Wrap | Out-String -Width 220 | Write-Host
 if ($stale -gt 0) {
     Write-Host "WARNING: $stale installed skill copies differ from $skillsSrc." -ForegroundColor Yellow
-    Write-Host '  Reinstall: devops_ue\skills\install_skills.bat global|project' -ForegroundColor Yellow
+    Write-Host '  Reinstall: devops_ue\skills\install_skills.bat global|project [claude|codex|opencode|antigravity|all]' -ForegroundColor Yellow
     exit 1
 }
 Write-Host "All installed copies match $skillsSrc." -ForegroundColor Green

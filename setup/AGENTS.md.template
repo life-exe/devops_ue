@@ -17,7 +17,7 @@ Instructions for AI coding agents (Claude Code, Codex, Cursor, ...) working in t
 +- Source/             C++ code
 +- devops_ue/          git submodule with automation scripts (do not modify from this repo)
 +- devops_data/        local devops config: config.bat (EnginePath, COPYRIGHT_LINE, ...)
-+- .claude/skills/     devops skills for Claude Code
++- .claude/skills/     devops skills for Claude Code (.agents/skills/ - the same for Codex / OpenCode / Antigravity)
 +- *.bat               shortcuts to devops_ue scripts
 ```
 

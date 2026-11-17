@@ -409,12 +409,17 @@ else { Add-Warning 'devops_ue is not in the project: package_wasm.bat/run_wasm.b
 
 if (-not $SkipEngineSkills -and -not $CheckOnly) {
     $engineSkills = Join-Path $WasmPlatform 'Skills'
-    $skillsDst = Join-Path $ProjectRoot '.claude\skills'
-    foreach ($skill in Get-ChildItem -LiteralPath $engineSkills -Directory -ErrorAction SilentlyContinue) {
-        if (-not (Test-Path -LiteralPath (Join-Path $skill.FullName 'SKILL.md'))) { continue }
-        New-Item -ItemType Directory -Force -Path $skillsDst | Out-Null
-        Copy-Item -LiteralPath $skill.FullName -Destination $skillsDst -Recurse -Force
-        Write-Host "  .claude\skills\$($skill.Name) (engine)"
+    # .claude\skills always; .agents\skills (Codex / OpenCode / Antigravity) too when the project has it
+    $skillRels = @('.claude\skills')
+    if (Test-Path -LiteralPath (Join-Path $ProjectRoot '.agents\skills')) { $skillRels += '.agents\skills' }
+    foreach ($rel in $skillRels) {
+        $skillsDst = Join-Path $ProjectRoot $rel
+        foreach ($skill in Get-ChildItem -LiteralPath $engineSkills -Directory -ErrorAction SilentlyContinue) {
+            if (-not (Test-Path -LiteralPath (Join-Path $skill.FullName 'SKILL.md'))) { continue }
+            New-Item -ItemType Directory -Force -Path $skillsDst | Out-Null
+            Copy-Item -LiteralPath $skill.FullName -Destination $skillsDst -Recurse -Force
+            Write-Host "  $rel\$($skill.Name) (engine)"
+        }
     }
 }
 

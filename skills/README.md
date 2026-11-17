@@ -15,14 +15,32 @@
 | `ue-content-audit` | Content size by folder/type/class, largest packages, unreferenced candidates, big textures, redirectors |
 | `ue-web-setup` | Sets a UE 5.9+ project up for the web (Wasm): emsdk, .uproject plugin rules, Wasm settings, C++ module for BP projects, SDK check, build/package |
 | `ue-web-deploy` | Installs butler / Vercel CLI / GitHub CLI and deploys a Wasm build to itch.io, Vercel or a GitHub release |
+| `ue-format` | clang-format over Source (or changed files / chosen paths / plugins), rewrites only files that differ; `-Check` for CI |
+| `ue-cook` | BuildCookRun cook only (Win64/Linux/Wasm, Game/Client/Server, incremental), reports cooked size and cook errors |
+| `ue-add-test` | Writes real automation tests for a given class (spec/legacy from the templates), runs them until green |
+| `ue-plugin-create` | Creates a C++ plugin skeleton (Runtime/Editor/Developer module, optional Editor module and Content), wires it into the game Build.cs |
+| `ue-plugin-package` | Packages a plugin with UAT BuildPlugin for chosen platforms, checks binaries, optional zip / Fab strict includes |
 
 ## Install
 
 ```
-install_skills.bat           - asks: [G]lobal or [P]roject
-install_skills.bat global    - %USERPROFILE%\.claude\skills: available in every folder
-install_skills.bat project   - <project>\.claude\skills (the folder that holds devops_ue): only this project, can be committed
+install_skills.bat                          - asks: [G]lobal or [P]roject, then the agent
+install_skills.bat global [agent]           - %USERPROFILE%\...: available in every folder
+install_skills.bat project [agent]          - <project>\... (the folder that holds devops_ue): only this project, can be committed
 ```
+
+`agent` (default `claude`):
+
+| agent | project folder | global folder |
+|-------|----------------|---------------|
+| `claude` | `.claude\skills` | `%USERPROFILE%\.claude\skills` |
+| `codex`, `opencode` | `.agents\skills` | `%USERPROFILE%\.agents\skills` |
+| `antigravity` | `.agents\skills` | `%USERPROFILE%\.gemini\antigravity\skills` |
+| `all` | all of the above | all of the above |
+
+The skills are plain `SKILL.md` + scripts, the same for every agent; only the folder the agent reads differs.
+OpenCode also reads `.claude\skills`, so installing both for it duplicates the skills (harmless). Paths follow each
+tool's docs at the time of writing - if an agent does not see the skills, check its current docs.
 
 * **Project** is enough for the usual start: `mkdir MyGame`, `git init`, `git submodule add https://github.com/life-exe/devops_ue`,
   `devops_ue\skills\install_skills.bat project`, open Claude Code in `MyGame`, `/ue-create-project` creates the project in place.

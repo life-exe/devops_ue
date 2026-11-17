@@ -212,12 +212,12 @@ else { throw 'Pass -ProjectDir <project folder> or -ParentDir <folder for <Proje
 
 # a folder prepared by hand may already hold the git repo, the devops_ue submodule and
 # project-local skills (devops_ue\skills\install_skills.bat project) - nothing else
-$allowedExisting = @('.git', '.gitmodules', 'devops_ue', '.claude')
+$allowedExisting = @('.git', '.gitmodules', 'devops_ue', '.claude', '.agents')
 $existingItems = @()
 if (Test-Path -LiteralPath $ProjectRoot) { $existingItems = @(Get-ChildItem -LiteralPath $ProjectRoot -Force) }
 $blocking = @($existingItems | Where-Object { $allowedExisting -notcontains $_.Name } | ForEach-Object { $_.Name })
 if ($blocking.Count -gt 0) {
-    throw "Target folder is not empty: $ProjectRoot (only .git, .gitmodules, devops_ue and .claude may exist; found: $($blocking -join ', '))"
+    throw "Target folder is not empty: $ProjectRoot (only .git, .gitmodules, devops_ue, .claude and .agents may exist; found: $($blocking -join ', '))"
 }
 $existingDevops = Join-Path $ProjectRoot 'devops_ue'
 $useExistingDevops = Test-Path -LiteralPath (Join-Path $existingDevops 'setup.bat')
@@ -482,14 +482,20 @@ Write-Text (Join-Path $ProjectRoot 'README.md') "# $ProjectName`r`n"
 
 # devops skills -> .claude/skills
 $skillsSrc = Join-Path $DevopsSource 'skills'
-$skillsDst = Join-Path $ProjectRoot '.claude\skills'
+# .claude\skills always; .agents\skills (Codex / OpenCode / Antigravity) too when the folder is already there
+# (install_skills.bat project codex|opencode|antigravity|all was run in this folder)
+$skillsDsts = @('.claude\skills')
+if (Test-Path -LiteralPath (Join-Path $ProjectRoot '.agents')) { $skillsDsts += '.agents\skills' }
 if (Test-Path -LiteralPath $skillsSrc) {
-    foreach ($skill in Get-ChildItem -LiteralPath $skillsSrc -Directory) {
-        if (-not (Test-Path -LiteralPath (Join-Path $skill.FullName 'SKILL.md'))) { continue }
-        New-Item -ItemType Directory -Force -Path $skillsDst | Out-Null
-        Copy-Item -LiteralPath $skill.FullName -Destination $skillsDst -Recurse -Force
-        Remove-Item -LiteralPath (Join-Path $skillsDst "$($skill.Name)\devops_source.txt") -Force -ErrorAction SilentlyContinue
-        Write-Host "  .claude\skills\$($skill.Name)"
+    foreach ($rel in $skillsDsts) {
+        $skillsDst = Join-Path $ProjectRoot $rel
+        foreach ($skill in Get-ChildItem -LiteralPath $skillsSrc -Directory) {
+            if (-not (Test-Path -LiteralPath (Join-Path $skill.FullName 'SKILL.md'))) { continue }
+            New-Item -ItemType Directory -Force -Path $skillsDst | Out-Null
+            Copy-Item -LiteralPath $skill.FullName -Destination $skillsDst -Recurse -Force
+            Remove-Item -LiteralPath (Join-Path $skillsDst "$($skill.Name)\devops_source.txt") -Force -ErrorAction SilentlyContinue
+            Write-Host "  $rel\$($skill.Name)"
+        }
     }
 }
 
