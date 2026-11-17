@@ -9,9 +9,13 @@ description: Help for the devops_ue skills - lists every ue-* skill with what it
 powershell -NoProfile -ExecutionPolicy Bypass -File "<skill dir>/scripts/skills_info.ps1" [-Name <skill>] [-Full] [-Where] [-Lang ru|en|both] [-Format Table|Markdown|Json]
 ```
 
-Talk to the user in their language and pass `-Lang` to match: `-Lang ru` for a Russian-speaking user (descriptions come from
-`summaries.ru.json`), `-Lang en` (default) for English, `-Lang both` when the user asks for both languages. A new skill needs an
-entry in `summaries.ru.json`, otherwise its Russian text falls back to English.
+## Language first
+
+**Before running the script, ask which language to print the descriptions in**, unless the user already named it
+(`/ue-help ru`, "по-русски", "in English", "both") - the bare `/ue-help` carries no language signal, so do not guess it.
+Use the question tool with three options: **Русский** (`-Lang ru`), **English** (`-Lang en`), **Both / Оба** (`-Lang both`).
+Then talk to the user in that language. Descriptions for `ru` come from `summaries.ru.json`; a new skill needs an entry
+there, otherwise its Russian text falls back to English.
 
 * No arguments: all skills with a one-line description (read from each `SKILL.md`, so the list is always current).
 * `-Name ue-cook` (or just `cook`): full description, the script file(s), their usage lines and every parameter
@@ -21,7 +25,7 @@ entry in `summaries.ru.json`, otherwise its Russian text falls back to English.
 
 ## What to do
 
-1. Run the script (no arguments for a general question, `-Name` when the user asks about one skill).
+1. Ask the language (see above), then run the script with `-Lang` (no other arguments for a general question, `-Name` when the user asks about one skill).
 2. Show the result as a Markdown table / short list, not a raw dump. Group by purpose:
    * environment: `ue-check-env`, `ue-install-env`
    * project: `ue-create-project`, `ue-upgrade-engine`, `ue-clean`, `ue-content-audit`
