@@ -6,7 +6,7 @@ description: Help for the devops_ue skills - lists every ue-* skill with what it
 # devops_ue skills help
 
 ```
-powershell -NoProfile -ExecutionPolicy Bypass -File "<skill dir>/scripts/skills_info.ps1" [-Name <skill>] [-Full] [-Where] [-Lang ru|en|both] [-Format Table|Markdown|Json]
+powershell -NoProfile -ExecutionPolicy Bypass -File "<skill dir>/scripts/skills_info.ps1" [-Name <skill>] [-Full] [-Where] [-Lang ru|en|both] [-Format Table|Markdown|Json|Html] [-Out <file>] [-Open]
 ```
 
 ## Language first
@@ -22,15 +22,28 @@ there, otherwise its Russian text falls back to English.
   with type, default and required flag.
 * `-Full`: the same for all skills. `-Where`: also the folders where each skill is installed (user / project, per agent).
 * `-Format Markdown` gives a table for docs, `-Format Json` a machine-readable dump.
+* `-Format Html` writes a self-contained help page (`%TEMP%\ue-skills-help.html`, or `-Out <file>`): one minimal table
+  with the skills grouped by purpose, search (`/`), RU / EN switch, light/dark theme, a click on a name copies
+  `/ue-...`, a click on a row shows the scripts with usage lines, parameters (type, default) and where the skill is
+  installed. `-Open` opens it in the browser. `-Lang ru|en` sets the language the page starts in (`both` starts in
+  Russian). The page template is `assets/help.html`.
 
 ## What to do
 
-1. Ask the language (see above), then run the script with `-Lang` (no other arguments for a general question, `-Name` when the user asks about one skill).
-2. Show the result as a Markdown table / short list, not a raw dump. Group by purpose:
+1. Ask the language (see above).
+2. Generate the HTML help and open it (this is the default answer to `/ue-help`):
+   `skills_info.ps1 -Format Html -Open -Lang <ru|en|both>`. Tell the user the path the script prints.
+   Skip `-Open` if the user does not want a browser window.
+3. In the chat give a short overview as well, not a raw dump - a Markdown table / short list from
+   `skills_info.ps1 -Lang <lang>`, grouped by purpose:
    * environment: `ue-check-env`, `ue-install-env`
    * project: `ue-create-project`, `ue-upgrade-engine`, `ue-clean`, `ue-content-audit`
    * code: `ue-format`, `ue-run-tests`, `ue-add-test`, `ue-docs`, `ue-plugin-create`, `ue-plugin-package`
    * build and release: `ue-target-create`, `ue-cook`, `ue-package`
-3. If the user described a task, name the one or two skills that fit and the next step ("run `/ue-cook`").
-4. A skill listed by the script but missing from the agent's list means the installed copy is old: run
+   * help: `ue-help`
+
+   For one skill (`-Name ue-cook`) the terminal output with its parameters is enough, no HTML needed unless asked.
+4. If the user described a task, name the one or two skills that fit and the next step ("run `/ue-cook`").
+5. A skill listed by the script but missing from the agent's list means the installed copy is old: run
    `devops_ue\skills\install_skills.bat` (see `check_skills.ps1`).
+6. A new skill falls into the "Other" group on the page until it is added to the `$groups` map in `skills_info.ps1`.

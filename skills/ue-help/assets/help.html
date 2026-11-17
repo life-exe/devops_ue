@@ -1,0 +1,242 @@
+<!doctype html>
+<!-- Copyright LifeEXE. All Rights Reserved. Template of the ue-help page: skills_info.ps1 -Format Html replaces __SKILLS_JSON__ with the data. -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>devops_ue skills</title>
+    <style>
+      :root {
+        --bg: #ffffff;
+        --text: #111111;
+        --muted: #6b6b6b;
+        --line: #d8d8d8;
+        --hover: #f4f4f4;
+        --code: #f0f0f0;
+        --accent: #0a58ca;
+        color-scheme: light;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) {
+          --bg: #0e0e0e;
+          --text: #ececec;
+          --muted: #8a8a8a;
+          --line: #2b2b2b;
+          --hover: #171717;
+          --code: #1b1b1b;
+          --accent: #6ea8fe;
+          color-scheme: dark;
+        }
+      }
+      :root[data-theme="dark"] {
+        --bg: #0e0e0e;
+        --text: #ececec;
+        --muted: #8a8a8a;
+        --line: #2b2b2b;
+        --hover: #171717;
+        --code: #1b1b1b;
+        --accent: #6ea8fe;
+        color-scheme: dark;
+      }
+      * { box-sizing: border-box; border-radius: 0; }
+      /* the scrollbar appears when rows are expanded and would shift the whole page sideways: keep its place reserved */
+      html { overflow-y: scroll; scrollbar-gutter: stable; }
+      main { min-height: 70vh; }
+      body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+      code, pre, .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
+      .wrap { max-width: 1240px; margin: 0 auto; padding: 0 32px; }
+      header { padding: 40px 0 16px; }
+      .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: baseline; justify-content: space-between; }
+      h1 { margin: 0; font-size: 26px; font-weight: 600; }
+      .sub { color: var(--muted); margin: 6px 0 0; font-size: 15px; }
+      .tools { display: flex; gap: 6px; align-items: center; }
+      button, input { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); padding: 6px 14px; }
+      button { cursor: pointer; color: var(--muted); }
+      button:hover { color: var(--text); border-color: var(--text); }
+      button[aria-pressed="true"] { color: var(--bg); background: var(--text); border-color: var(--text); }
+      #q { width: 100%; margin: 24px 0 8px; padding: 12px 14px; }
+      #q:focus { outline: 1px solid var(--text); outline-offset: -1px; }
+      table { width: 100%; border-collapse: collapse; margin: 8px 0 32px; table-layout: fixed; }
+      col.c-tog { width: 28px; }
+      col.c-nm { width: 220px; }
+      td { overflow-wrap: anywhere; }
+      th { text-align: left; font-weight: 600; color: var(--muted); font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; }
+      th, td { padding: 14px 16px 14px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+      tr.group td { padding: 36px 0 10px; font-weight: 600; font-size: 17px; border-bottom: 1px solid var(--text); }
+      tr.group small { color: var(--muted); font-weight: 400; margin-left: 6px; }
+      tr.skill { cursor: pointer; }
+      tr.skill:hover td { background: var(--hover); }
+      td.tog { color: var(--muted); user-select: none; }
+      td.nm { padding-right: 20px; }
+      .name { color: var(--accent); font-weight: 600; }
+      .name.done::after { content: " ✓"; color: var(--muted); font-weight: 400; }
+      .sec { color: var(--muted); }
+      .use { color: var(--muted); font-size: 14px; margin-top: 6px; }
+      tr.detail td { background: var(--hover); padding: 18px 20px 22px 24px; }
+      tr.detail[hidden] { display: none; }
+      h4 { margin: 20px 0 8px; font-size: 15px; font-weight: 600; }
+      h4:first-child { margin-top: 0; }
+      pre { margin: 0 0 10px; padding: 12px 14px; background: var(--code); overflow-x: auto; font-size: 14px; line-height: 1.6; color: var(--muted); }
+      table.params { margin: 0 0 8px; font-size: 14px; }
+      table.params col.p-name { width: 34%; }
+      table.params col.p-type { width: 26%; }
+      table.params th, table.params td { padding: 6px 16px 6px 0; border-bottom: 1px solid var(--line); background: transparent; }
+      table.params th { font-size: 12px; }
+      table.params td:first-child { color: var(--accent); }
+      .req { color: #c0392b; }
+      .empty { color: var(--muted); padding: 32px 0; }
+      footer { color: var(--muted); font-size: 13px; padding-bottom: 48px; }
+      @media (max-width: 640px) { col.c-nm { width: 120px; } }
+      @media print { .tools, #q { display: none; } tr.detail[hidden] { display: table-row; } }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <div class="row">
+          <div>
+            <h1>devops_ue skills</h1>
+            <p class="sub" id="sub"></p>
+          </div>
+          <div class="tools">
+            <span id="langs" role="group" aria-label="Language">
+              <button data-lang="ru">RU</button><button data-lang="en">EN</button>
+            </span>
+            <button id="theme" type="button"></button>
+          </div>
+        </div>
+        <input id="q" type="search" autocomplete="off" />
+      </header>
+      <main id="app"></main>
+      <footer id="foot"></footer>
+    </div>
+    <script id="data" type="application/json">__SKILLS_JSON__</script>
+    <script>
+      "use strict";
+      const D = JSON.parse(document.getElementById("data").textContent);
+      const CATS = [
+        { id: "env", ru: "Окружение", en: "Environment" },
+        { id: "project", ru: "Проект", en: "Project" },
+        { id: "code", ru: "Код", en: "Code" },
+        { id: "build", ru: "Сборка и релиз", en: "Build and release" },
+        { id: "help", ru: "Справка", en: "Help" },
+        { id: "other", ru: "Прочее", en: "Other" },
+      ];
+      const UI = {
+        ru: { sub: "скиллов", search: "Поиск по названию, описанию, параметрам   ( / )", skill: "Скилл", desc: "Описание", theme: "Тема",
+          noScripts: "Скриптов нет: скилл — сценарий для агента.", param: "Параметр", type: "Тип", def: "По умолчанию", installed: "Установлен",
+          notInstalled: "не установлен", none: "Ничего не найдено.", foot: "Сгенерировано", hint: "Клик по строке — параметры скриптов, клик по названию — копировать" },
+        en: { sub: "skills", search: "Search by name, description, parameters   ( / )", skill: "Skill", desc: "Description", theme: "Theme",
+          noScripts: "No scripts: the skill is a workflow for the agent.", param: "Parameter", type: "Type", def: "Default", installed: "Installed",
+          notInstalled: "not installed", none: "Nothing found.", foot: "Generated", hint: "Click a row for script parameters, click a name to copy" },
+      };
+      const state = { lang: D.lang === "en" ? "en" : "ru", q: "", open: new Set() };
+      const $ = (id) => document.getElementById(id);
+      const ui = () => (state.lang === "en" ? UI.en : UI.ru);
+      const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+      const store = {
+        get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+        set(k, v) { try { localStorage.setItem(k, v); } catch { /* storage may be blocked */ } },
+      };
+      const savedLang = store.get("ue-help-lang");
+      if ((savedLang === "ru" || savedLang === "en") && !D.langForced) state.lang = savedLang;
+      const savedTheme = store.get("ue-help-theme");
+      if (savedTheme === "light" || savedTheme === "dark") document.documentElement.dataset.theme = savedTheme;
+
+      function matches(s) {
+        if (!state.q) return true;
+        const sc = (s.scripts || []).flatMap((x) => [x.file, ...(x.usage || []), ...(x.parameters || []).map((p) => p.name)]);
+        return [s.name, s.summary, s.summaryRu, s.useWhen, ...sc].join(" ").toLowerCase().includes(state.q.toLowerCase());
+      }
+      function summaryHtml(s) {
+        return esc(state.lang === "en" ? s.summary : s.summaryRu || s.summary);
+      }
+      function detailHtml(s) {
+        const t = ui();
+        const scripts = (s.scripts || []).length
+          ? s.scripts.map((sc) => {
+              const usage = (sc.usage || []).length ? `<pre>${esc(sc.usage.join("\n"))}</pre>` : "";
+              const rows = (sc.parameters || []).map((p) =>
+                `<tr><td class="mono">-${esc(p.name)}${p.mandatory ? ' <span class="req">*</span>' : ""}</td><td class="mono">${esc(p.type)}</td><td class="mono">${esc(p.default)}</td></tr>`).join("");
+              const table = rows ? `<table class="params"><colgroup><col class="p-name"><col class="p-type"><col></colgroup><thead><tr><th>${t.param}</th><th>${t.type}</th><th>${t.def}</th></tr></thead><tbody>${rows}</tbody></table>` : "";
+              return `<h4 class="mono">scripts\\${esc(sc.file)}</h4>${usage}${table}`;
+            }).join("")
+          : `<div class="sec">${t.noScripts}</div>`;
+        const inst = (s.installed || []).length ? s.installed.join(", ") : t.notInstalled;
+        return `${scripts}<h4>${t.installed}</h4><div class="sec">${esc(inst)}</div>`;
+      }
+      function rowHtml(s) {
+        const open = state.open.has(s.name);
+        const use = s.useWhen && state.lang === "en" ?`<div class="use">${esc(s.useWhen)}</div>` : "";
+        return `<tr class="skill" data-name="${esc(s.name)}"><td class="tog">${open ? "−" : "+"}</td>
+          <td class="nm"><span class="name mono" data-copy="/${esc(s.name)}" title="/${esc(s.name)}">/${esc(s.name)}</span></td>
+          <td>${summaryHtml(s)}${use}</td></tr>
+          <tr class="detail" ${open ? "" : "hidden"}><td></td><td colspan="2">${detailHtml(s)}</td></tr>`;
+      }
+      function render() {
+        const t = ui();
+        document.documentElement.lang = state.lang === "en" ? "en" : "ru";
+        $("sub").textContent = `${D.skills.length} ${t.sub} · ${t.hint}`;
+        $("q").placeholder = t.search;
+        $("theme").textContent = t.theme;
+        $("foot").textContent = `${t.foot}: ${D.generated} · ${D.skillsDir}`;
+        document.querySelectorAll("#langs button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.lang === state.lang)));
+        let body = "";
+        for (const c of CATS) {
+          const list = D.skills.filter((s) => s.category === c.id && matches(s));
+          if (!list.length) continue;
+          body += `<tr class="group"><td colspan="3">${esc(state.lang === "en" ? c.en : c.ru)}<small>${list.length}</small></td></tr>${list.map(rowHtml).join("")}`;
+        }
+        $("app").innerHTML = body
+          ? `<table><colgroup><col class="c-tog"><col class="c-nm"><col></colgroup><thead><tr><th></th><th>${t.skill}</th><th>${t.desc}</th></tr></thead><tbody>${body}</tbody></table>`
+          : `<p class="empty">${t.none}</p>`;
+      }
+      async function copyText(text) {
+        try { await navigator.clipboard.writeText(text); } catch {
+          const ta = document.createElement("textarea");
+          ta.value = text;
+          document.body.appendChild(ta);
+          ta.select();
+          try { document.execCommand("copy"); } catch { /* nothing else to try */ }
+          ta.remove();
+        }
+      }
+
+      $("langs").addEventListener("click", (e) => {
+        const b = e.target.closest("button[data-lang]");
+        if (!b) return;
+        state.lang = b.dataset.lang;
+        store.set("ue-help-lang", state.lang);
+        render();
+      });
+      $("q").addEventListener("input", (e) => { state.q = e.target.value.trim(); render(); });
+      $("theme").addEventListener("click", () => {
+        const root = document.documentElement;
+        const dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+        root.dataset.theme = dark ? "light" : "dark";
+        store.set("ue-help-theme", root.dataset.theme);
+      });
+      $("app").addEventListener("click", (e) => {
+        const nm = e.target.closest("[data-copy]");
+        if (nm) {
+          copyText(nm.dataset.copy);
+          nm.classList.add("done");
+          setTimeout(() => nm.classList.remove("done"), 1200);
+          return;
+        }
+        const row = e.target.closest("tr.skill");
+        if (!row) return;
+        const name = row.dataset.name;
+        if (state.open.has(name)) state.open.delete(name); else state.open.add(name);
+        const detail = row.nextElementSibling;
+        detail.hidden = !state.open.has(name);
+        row.querySelector(".tog").textContent = state.open.has(name) ? "−" : "+";
+      });
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "/" && document.activeElement !== $("q")) { e.preventDefault(); $("q").focus(); }
+        if (e.key === "Escape" && document.activeElement === $("q")) { $("q").value = ""; state.q = ""; render(); $("q").blur(); }
+      });
+      render();
+    </script>
+  </body>
+</html>

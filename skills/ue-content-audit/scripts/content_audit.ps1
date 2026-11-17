@@ -4,6 +4,8 @@
 #   content_audit.ps1 -ProjectPath C:\Game -Deep              # + editor asset registry: by class, unreferenced candidates,
 #                                                             #   big textures, redirectors (starts UnrealEditor-Cmd, ~1-3 min)
 #   content_audit.ps1 -ProjectPath C:\Game -Deep -Report Saved\content_audit.md
+#   content_audit.ps1 -ProjectPath C:\Game -Deep -Html -Open -Lang ru   # a minimal HTML report (Saved\ContentAudit\content_audit.html), opened in the browser
+#   content_audit.ps1 -ProjectPath C:\Game -Report Saved\audit.html     # -Report ending in .html writes the HTML report there
 [CmdletBinding()]
 param(
     [string]$ProjectPath = '.',
@@ -11,6 +13,9 @@ param(
     [int]$Top = 20,
     [int]$TextureLimit = 2048,
     [string]$Report = '',
+    [switch]$Html,      # HTML report (self-contained page with filter, RU/EN switch, light/dark theme)
+    [switch]$Open,      # open the HTML report in the default browser
+    [ValidateSet('ru', 'en')][string]$Lang = 'en',   # language the HTML page starts in
     [string]$EnginePath = ''
 )
 
@@ -75,8 +80,13 @@ function Add-MdTable([string]$Heading, $Rows, [string[]]$Columns) {
     foreach ($r in $Rows) { [void]$md.AppendLine('| ' + (($Columns | ForEach-Object { "$($r.$_)".Replace('|', '\|') }) -join ' | ') + ' |') }
     [void]$md.AppendLine()
 }
-function Show-Table([string]$Heading, $Rows, [string[]]$Columns) {
+$sections = New-Object System.Collections.ArrayList   # the same tables for the HTML report
+function Show-Table([string]$Heading, $Rows, [string[]]$Columns, [string]$Key = '', $Meta = @{}) {
     Write-Host ''; Write-Host "  $Heading" -ForegroundColor Cyan
+    [void]$sections.Add([ordered]@{
+            key = $Key; heading = $Heading; columns = $Columns; meta = $Meta
+            rows = @($Rows | ForEach-Object { $r = $_; $o = [ordered]@{}; foreach ($c in $Columns) { $o[$c] = "$($r.$c)" }; $o })
+        })
     if (-not $Rows) { Write-Host '    none'; return }
     $Rows | Select-Object $Columns | Format-Table -AutoSize | Out-String -Width 220 | ForEach-Object { $_.TrimEnd() } | Write-Host
     Add-MdTable $Heading $Rows $Columns
@@ -116,16 +126,16 @@ foreach ($f in $files) {
 $byFolder = $files | Group-Object { $r = $_.FullName.Substring($contentFull.Length + 1); if ($r -match '^__External') { '(World Partition actors)' } else { ($r -split '\\')[0] + $(if ($r -notmatch '\\') { ' (file)' }) } } |
     ForEach-Object { [pscustomobject]@{ Folder = $_.Name; Files = $_.Count; Bytes = ($_.Group | Measure-Object Length -Sum).Sum } } | Sort-Object Bytes -Descending |
     ForEach-Object { $_ | Add-Member -NotePropertyName Size -NotePropertyValue (Format-Size $_.Bytes) -PassThru | Add-Member -NotePropertyName Share -NotePropertyValue ('{0:P0}' -f ($_.Bytes / [math]::Max(1, $total))) -PassThru }
-Show-Table 'Size by top folder' $byFolder @('Folder', 'Files', 'Size', 'Share')
+Show-Table 'Size by top folder' $byFolder @('Folder', 'Files', 'Size', 'Share') 'folders'
 
 $byExt = $files | Group-Object { if ($_.Extension) { $_.Extension.ToLowerInvariant() } else { '(none)' } } |
     ForEach-Object { [pscustomobject]@{ Type = $_.Name; Files = $_.Count; Bytes = ($_.Group | Measure-Object Length -Sum).Sum } } | Sort-Object Bytes -Descending |
     ForEach-Object { $_ | Add-Member -NotePropertyName Size -NotePropertyValue (Format-Size $_.Bytes) -PassThru }
-Show-Table 'Size by file type' $byExt @('Type', 'Files', 'Size')
+Show-Table 'Size by file type' $byExt @('Type', 'Files', 'Size') 'types'
 
 $largest = $packages.Values | Sort-Object Bytes -Descending | Select-Object -First $Top |
     ForEach-Object { [pscustomobject]@{ Package = $_.Package; Size = (Format-Size $_.Bytes); Map = $(if ($_.IsMap) { 'map' } else { '' }) } }
-Show-Table "Largest $Top packages" $largest @('Package', 'Size', 'Map')
+Show-Table "Largest $Top packages" $largest @('Package', 'Size', 'Map') 'largest' @{ top = $Top }
 
 # ---------------------------------------------------------------------------------------------
 if ($Deep) {
@@ -161,7 +171,7 @@ if ($Deep) {
 
             $byClass = $assets | Group-Object class | ForEach-Object { [pscustomobject]@{ Class = $_.Name; Assets = $_.Count; Bytes = ($_.Group | Measure-Object Bytes -Sum).Sum } } |
                 Sort-Object Bytes -Descending | Select-Object -First 25 | ForEach-Object { $_ | Add-Member -NotePropertyName Size -NotePropertyValue (Format-Size $_.Bytes) -PassThru }
-            Show-Table 'Size by asset class (top 25)' $byClass @('Class', 'Assets', 'Size')
+            Show-Table 'Size by asset class (top 25)' $byClass @('Class', 'Assets', 'Size') 'classes'
 
             # unreferenced: no package references them - minus roots (maps), redirectors and anything named in Config/*.ini / .uproject
             $configText = ((Get-ChildItem -LiteralPath (Join-Path $ProjectRoot 'Config') -Filter '*.ini' -File -ErrorAction SilentlyContinue | ForEach-Object { [IO.File]::ReadAllText($_.FullName) }) -join "`n") + [IO.File]::ReadAllText($UProjectPath)
@@ -171,21 +181,47 @@ if ($Deep) {
             $unref = @($assets | Where-Object { $_.referencer_count -eq 0 -and $roots -notcontains $_.class -and -not $configRefs.ContainsKey($_.package) })
             $unrefBytes = ($unref | Measure-Object Bytes -Sum).Sum
             $unrefTop = $unref | Sort-Object Bytes -Descending | Select-Object -First $Top | ForEach-Object { [pscustomobject]@{ Package = $_.package; Class = $_.class; Size = (Format-Size $_.Bytes) } }
-            Show-Table "Unreferenced candidates: $($unref.Count) assets, $(Format-Size $unrefBytes) (top $Top)" $unrefTop @('Package', 'Class', 'Size')
+            Show-Table "Unreferenced candidates: $($unref.Count) assets, $(Format-Size $unrefBytes) (top $Top)" $unrefTop @('Package', 'Class', 'Size') 'unref' @{ count = $unref.Count; size = (Format-Size $unrefBytes); top = $Top }
 
             $big = @($assets | Where-Object { $_.dimensions -match '^(\d+)x(\d+)' -and [math]::Max([int]$Matches[1], [int]$Matches[2]) -gt $TextureLimit }) |
                 Sort-Object Bytes -Descending | Select-Object -First $Top | ForEach-Object { [pscustomobject]@{ Package = $_.package; Dimensions = $_.dimensions; Size = (Format-Size $_.Bytes) } }
-            Show-Table "Textures larger than $TextureLimit px (top $Top)" $big @('Package', 'Dimensions', 'Size')
+            Show-Table "Textures larger than $TextureLimit px (top $Top)" $big @('Package', 'Dimensions', 'Size') 'textures' @{ limit = $TextureLimit; top = $Top }
 
             $redirectors = @($assets | Where-Object { $_.class -eq 'ObjectRedirector' } | ForEach-Object { [pscustomobject]@{ Package = $_.package } })
-            Show-Table "Redirectors ($($redirectors.Count))" $redirectors @('Package')
+            Show-Table "Redirectors ($($redirectors.Count))" $redirectors @('Package') 'redirectors' @{ count = $redirectors.Count }
             if ($redirectors.Count) { Write-Host '    fix in the editor: Content Browser > right-click the folder > Fix Up Redirectors' }
         }
     }
 }
 
 # ---------------------------------------------------------------------------------------------
-if ($Report) {
+$htmlReport = $Html -or ($Report -like '*.html')
+if ($htmlReport) {
+    Write-Step 'HTML report'
+    $template = Join-Path $PSScriptRoot '..\assets\report.html'
+    if (-not (Test-Path -LiteralPath $template)) { throw "HTML template not found: $template" }
+    $htmlPath = if ($Report -like '*.html') { if ([IO.Path]::IsPathRooted($Report)) { $Report } else { Join-Path $ProjectRoot $Report } } else { Join-Path $ProjectRoot 'Saved\ContentAudit\content_audit.html' }
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $htmlPath) | Out-Null
+    $data = [ordered]@{
+        project    = $ProjectName
+        date       = (Get-Date -Format 'yyyy-MM-dd HH:mm')
+        files      = $files.Count
+        size       = (Format-Size $total)
+        contentDir = $contentFull
+        deep       = [bool]$Deep
+        lang       = $Lang
+        langForced = $PSBoundParameters.ContainsKey('Lang')   # an explicit -Lang wins over the language remembered by the page
+        warnings   = @($Warnings)
+        sections   = @($sections)
+    }
+    # "</" would end the <script> block the JSON is embedded in
+    $json = ($data | ConvertTo-Json -Depth 8 -Compress).Replace('</', '<\/')
+    $page = [IO.File]::ReadAllText($template, [Text.Encoding]::UTF8).Replace('__AUDIT_JSON__', $json)
+    [IO.File]::WriteAllText($htmlPath, $page, (New-Object Text.UTF8Encoding($true)))
+    Write-Host "  html report: $htmlPath"
+    if ($Open) { Start-Process -FilePath $htmlPath }
+}
+if ($Report -and $Report -notlike '*.html') {
     $reportPath = if ([IO.Path]::IsPathRooted($Report)) { $Report } else { Join-Path $ProjectRoot $Report }
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $reportPath) | Out-Null
     if ($Deep) { [void]$md.AppendLine('> Unreferenced = no package references it and it is not named in Config/*.ini. Assets loaded only by path strings in code or data tables also look unreferenced: check before deleting.') }

@@ -12,7 +12,7 @@
 | `ue-package` | Packages Game/Client/Server for Win64/Linux and web (Wasm) builds with pre-checks and a size/exe report (Wasm: + release scan) |
 | `ue-docs` | Doxygen documentation with the devops_ue themes and UE macro filter |
 | `ue-clean` | Removes Intermediate/Binaries/DDC/... with a size report (Saved, Build, global DDC opt-in) |
-| `ue-content-audit` | Content size by folder/type/class, largest packages, unreferenced candidates, big textures, redirectors |
+| `ue-content-audit` | Content size by folder/type/class, largest packages, unreferenced candidates, big textures, redirectors; Markdown or HTML report |
 | `ue-format` | clang-format over Source (or changed files / chosen paths / plugins), rewrites only files that differ; `-Check` for CI |
 | `ue-cook` | BuildCookRun cook only (Win64/Linux/Wasm, Game/Client/Server, incremental), reports cooked size and cook errors |
 | `ue-add-test` | Writes real automation tests for a given class (spec/legacy from the templates), runs them until green |
@@ -23,6 +23,8 @@
 
 The same overview without an agent: `powershell -ExecutionPolicy Bypass -File ue-help\scripts\skills_info.ps1`
 (`-Name <skill>` details, `-Full` everything, `-Where` install folders, `-Format Markdown|Json`, `-Lang ru|en|both`).
+`-Format Html -Open` writes a self-contained help page (a minimal table with search, groups, RU/EN switch, parameters of every script) and opens it
+in the browser; `/ue-help` does this by default.
 
 ## Install
 

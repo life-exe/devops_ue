@@ -1,0 +1,194 @@
+<!doctype html>
+<!-- Copyright LifeEXE. All Rights Reserved. Template of the content audit page: content_audit.ps1 -Html replaces __AUDIT_JSON__ with the data. -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Content audit</title>
+    <style>
+      :root {
+        --bg: #ffffff;
+        --text: #111111;
+        --muted: #6b6b6b;
+        --line: #d8d8d8;
+        --hover: #f4f4f4;
+        --accent: #0a58ca;
+        --warn: #b35900;
+        color-scheme: light;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) {
+          --bg: #0e0e0e;
+          --text: #ececec;
+          --muted: #8a8a8a;
+          --line: #2b2b2b;
+          --hover: #171717;
+          --accent: #6ea8fe;
+          --warn: #e0a050;
+          color-scheme: dark;
+        }
+      }
+      :root[data-theme="dark"] {
+        --bg: #0e0e0e;
+        --text: #ececec;
+        --muted: #8a8a8a;
+        --line: #2b2b2b;
+        --hover: #171717;
+        --accent: #6ea8fe;
+        --warn: #e0a050;
+        color-scheme: dark;
+      }
+      * { box-sizing: border-box; border-radius: 0; }
+      /* keep the scrollbar's place reserved: the page must not shift sideways when the filter changes its height */
+      html { overflow-y: scroll; scrollbar-gutter: stable; }
+      body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+      code, .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
+      .wrap { max-width: 1240px; margin: 0 auto; padding: 0 32px; }
+      header { padding: 40px 0 16px; }
+      .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: baseline; justify-content: space-between; }
+      h1 { margin: 0; font-size: 26px; font-weight: 600; }
+      .sub { color: var(--muted); margin: 6px 0 0; font-size: 15px; }
+      .tools { display: flex; gap: 6px; align-items: center; }
+      button, input { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); padding: 6px 14px; }
+      button { cursor: pointer; color: var(--muted); }
+      button:hover { color: var(--text); border-color: var(--text); }
+      button[aria-pressed="true"] { color: var(--bg); background: var(--text); border-color: var(--text); }
+      #q { width: 100%; margin: 24px 0 8px; padding: 12px 14px; }
+      #q:focus { outline: 1px solid var(--text); outline-offset: -1px; }
+      .warn { margin: 16px 0 0; padding: 10px 14px; border: 1px solid var(--warn); color: var(--warn); }
+      section { margin-top: 40px; }
+      h2 { margin: 0 0 6px; font-size: 18px; font-weight: 600; padding-bottom: 10px; border-bottom: 1px solid var(--text); }
+      table { width: 100%; border-collapse: collapse; }
+      th { text-align: left; font-weight: 600; color: var(--muted); font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; }
+      th, td { padding: 12px 16px 12px 0; border-bottom: 1px solid var(--line); vertical-align: top; overflow-wrap: anywhere; }
+      th.num, td.num { text-align: right; white-space: nowrap; padding-left: 16px; }
+      th:last-child, td:last-child { padding-right: 0; }
+      th.mapcol, td.mapcol { padding-left: 24px; white-space: nowrap; color: var(--muted); }
+      tbody tr:hover td { background: var(--hover); }
+      td.pkg { color: var(--accent); }
+      .note { color: var(--muted); font-size: 14px; margin: 10px 0 0; }
+      .none { color: var(--muted); padding: 12px 0; }
+      footer { color: var(--muted); font-size: 13px; padding: 40px 0 48px; }
+      @media print { .tools, #q { display: none; } }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <div class="row">
+          <div>
+            <h1 id="ttl"></h1>
+            <p class="sub" id="sub"></p>
+          </div>
+          <div class="tools">
+            <span id="langs" role="group" aria-label="Language"><button data-lang="ru">RU</button><button data-lang="en">EN</button></span>
+            <button id="theme" type="button"></button>
+          </div>
+        </div>
+        <input id="q" type="search" autocomplete="off" />
+        <div id="warns"></div>
+      </header>
+      <main id="app"></main>
+      <footer id="foot"></footer>
+    </div>
+    <script id="data" type="application/json">__AUDIT_JSON__</script>
+    <script>
+      "use strict";
+      const D = JSON.parse(document.getElementById("data").textContent);
+      const L = {
+        ru: {
+          ttl: "Аудит Content", files: "файлов", search: "Фильтр по строкам   ( / )", theme: "Тема", none: "нет", nothing: "Ничего не найдено.", foot: "Сгенерировано",
+          warn: "Предупреждение", deepOff: "Быстрый аудит без редактора. Для классов ассетов, неиспользуемых ассетов, текстур и редиректоров запустите с -Deep.",
+          unrefNote: "Без ссылок = ни один пакет на ассет не ссылается и он не упомянут в Config/*.ini. Ассеты, загружаемые по строковому пути из кода или таблиц данных, тоже выглядят неиспользуемыми: проверьте перед удалением, удаляйте в редакторе.",
+          redirNote: "Исправить в редакторе: Content Browser > правый клик по папке > Fix Up Redirectors",
+          h: {
+            folders: () => "Размер по папкам верхнего уровня", types: () => "Размер по типам файлов", largest: (m) => `Крупнейшие пакеты (${m.top})`,
+            classes: () => "Размер по классам ассетов (топ 25)", unref: (m) => `Кандидаты без ссылок: ${m.count} ассетов, ${m.size} (топ ${m.top})`,
+            textures: (m) => `Текстуры больше ${m.limit} px (топ ${m.top})`, redirectors: (m) => `Редиректоры (${m.count})`,
+          },
+          c: { Folder: "Папка", Files: "Файлов", Size: "Размер", Share: "Доля", Type: "Тип", Package: "Пакет", Map: "Тип", Class: "Класс", Assets: "Ассетов", Dimensions: "Размеры" },
+          v: { map: "карта" },
+        },
+        en: {
+          ttl: "Content audit", files: "files", search: "Filter rows   ( / )", theme: "Theme", none: "none", nothing: "Nothing found.", foot: "Generated",
+          warn: "Warning", deepOff: "Quick audit without the editor. Run with -Deep for asset classes, unreferenced assets, textures and redirectors.",
+          unrefNote: "Unreferenced = no package references the asset and it is not named in Config/*.ini. Assets loaded only by path strings in code or data tables also look unreferenced: check before deleting, delete inside the editor.",
+          redirNote: "Fix in the editor: Content Browser > right-click the folder > Fix Up Redirectors",
+          h: {
+            folders: () => "Size by top folder", types: () => "Size by file type", largest: (m) => `Largest ${m.top} packages`,
+            classes: () => "Size by asset class (top 25)", unref: (m) => `Unreferenced candidates: ${m.count} assets, ${m.size} (top ${m.top})`,
+            textures: (m) => `Textures larger than ${m.limit} px (top ${m.top})`, redirectors: (m) => `Redirectors (${m.count})`,
+          },
+          c: { Map: "Type" },
+          v: {},
+        },
+      };
+      const NUM = new Set(["Files", "Assets", "Size", "Share", "Dimensions"]);
+      const state = { lang: D.lang === "en" ? "en" : "ru", q: "" };
+      const $ = (id) => document.getElementById(id);
+      const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+      const store = {
+        get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+        set(k, v) { try { localStorage.setItem(k, v); } catch { /* storage may be blocked */ } },
+      };
+      const savedLang = store.get("ue-audit-lang");
+      if ((savedLang === "ru" || savedLang === "en") && !D.langForced) state.lang = savedLang;
+      const savedTheme = store.get("ue-audit-theme");
+      if (savedTheme === "light" || savedTheme === "dark") document.documentElement.dataset.theme = savedTheme;
+
+      const col = (name) => L[state.lang].c[name] || name;
+      function sectionHtml(s) {
+        const t = L[state.lang];
+        const q = state.q.toLowerCase();
+        const rows = s.rows.filter((r) => !q || s.columns.some((c) => String(r[c]).toLowerCase().includes(q)));
+        if (state.q && !rows.length) return "";
+        const head = (t.h[s.key] || (() => s.heading))(s.meta || {});
+        let note = "";
+        if (s.key === "unref") note = `<p class="note">${esc(t.unrefNote)}</p>`;
+        if (s.key === "redirectors" && s.rows.length) note = `<p class="note">${esc(t.redirNote)}</p>`;
+        if (!s.rows.length) return `<section><h2>${esc(head)}</h2><p class="none">${t.none}</p></section>`;
+        const cls = (c) => (NUM.has(c) ? "num" : c === "Package" ? "pkg mono" : c === "Map" ? "mapcol" : "");
+        const th = s.columns.map((c) => `<th class="${cls(c)}">${esc(col(c))}</th>`).join("");
+        const val = (c, v) => (c === "Map" && t.v[v] ? t.v[v] : v);
+        const tr = rows.map((r) => `<tr>${s.columns.map((c) => `<td class="${cls(c)}">${esc(val(c, r[c]))}</td>`).join("")}</tr>`).join("");
+        return `<section><h2>${esc(head)}</h2><table><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table>${note}</section>`;
+      }
+      function render() {
+        const t = L[state.lang];
+        document.documentElement.lang = state.lang;
+        document.title = `${t.ttl}: ${D.project}`;
+        $("ttl").textContent = `${t.ttl}: ${D.project}`;
+        $("sub").textContent = `${D.files} ${t.files}, ${D.size} · ${D.date}`;
+        $("q").placeholder = t.search;
+        $("theme").textContent = t.theme;
+        $("foot").textContent = `${t.foot}: ${D.date} · ${D.contentDir}`;
+        document.querySelectorAll("#langs button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.lang === state.lang)));
+        const warns = (D.warnings || []).map((w) => `<div class="warn">${t.warn}: ${esc(w)}</div>`);
+        if (!D.deep) warns.push(`<div class="warn">${esc(t.deepOff)}</div>`);
+        $("warns").innerHTML = warns.join("");
+        const html = D.sections.map(sectionHtml).join("");
+        $("app").innerHTML = html || `<p class="none">${t.nothing}</p>`;
+      }
+
+      $("langs").addEventListener("click", (e) => {
+        const b = e.target.closest("button[data-lang]");
+        if (!b) return;
+        state.lang = b.dataset.lang;
+        store.set("ue-audit-lang", state.lang);
+        render();
+      });
+      $("q").addEventListener("input", (e) => { state.q = e.target.value.trim(); render(); });
+      $("theme").addEventListener("click", () => {
+        const root = document.documentElement;
+        const dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+        root.dataset.theme = dark ? "light" : "dark";
+        store.set("ue-audit-theme", root.dataset.theme);
+      });
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "/" && document.activeElement !== $("q")) { e.preventDefault(); $("q").focus(); }
+        if (e.key === "Escape" && document.activeElement === $("q")) { $("q").value = ""; state.q = ""; render(); $("q").blur(); }
+      });
+      render();
+    </script>
+  </body>
+</html>

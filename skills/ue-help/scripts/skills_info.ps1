@@ -6,13 +6,17 @@
 #   skills_info.ps1 -Format Markdown   # Markdown table (for docs / README)   |  -Format Json  # machine readable
 #   skills_info.ps1 -Lang ru           # descriptions in Russian (-Lang both: Russian + English; default en)
 #   skills_info.ps1 -Where             # + the folders where each skill is installed (user / project, per agent)
+#   skills_info.ps1 -Format Html -Open # a self-contained HTML help page (search, groups, RU/EN switch, parameters), opened in the browser
+#   skills_info.ps1 -Format Html -Out C:\Temp\skills.html -Lang ru   # where to write it (default: %TEMP%\ue-skills-help.html) + start language
 [CmdletBinding()]
 param(
     [string]$Name = '',
     [switch]$Full,
     [switch]$Where,
     [switch]$All,   # also skills that do not start with ue-
-    [ValidateSet('Table', 'Markdown', 'Json')][string]$Format = 'Table',
+    [ValidateSet('Table', 'Markdown', 'Json', 'Html')][string]$Format = 'Table',
+    [string]$Out = '',     # -Format Html: output file
+    [switch]$Open,         # -Format Html: open the page in the default browser
     # language of the descriptions: en (SKILL.md text), ru (summaries.ru.json), both (ru + en)
     [ValidateSet('en', 'ru', 'both')][string]$Lang = 'en',
     [string]$SkillsDir = '',
@@ -137,6 +141,54 @@ if ($Format -eq 'Json') {
     exit 0
 }
 
+if ($Format -eq 'Html') {
+    $template = Join-Path $PSScriptRoot '..\assets\help.html'
+    if (-not (Test-Path -LiteralPath $template)) { Write-Host "HTML template not found: $template" -ForegroundColor Red; exit 1 }
+    if (-not $Out) { $Out = Join-Path ([IO.Path]::GetTempPath()) 'ue-skills-help.html' }
+    # group of a skill on the page (labels are in the template); a new skill falls into "other" until it is listed here
+    $groups = @{
+        'ue-check-env' = 'env'; 'ue-install-env' = 'env'
+        'ue-create-project' = 'project'; 'ue-upgrade-engine' = 'project'; 'ue-clean' = 'project'; 'ue-content-audit' = 'project'
+        'ue-format' = 'code'; 'ue-run-tests' = 'code'; 'ue-add-test' = 'code'; 'ue-docs' = 'code'; 'ue-plugin-create' = 'code'; 'ue-plugin-package' = 'code'
+        'ue-target-create' = 'build'; 'ue-cook' = 'build'; 'ue-package' = 'build'
+        'ue-help' = 'help'
+    }
+    $data = [ordered]@{
+        generated  = (Get-Date -Format 'yyyy-MM-dd HH:mm')
+        lang       = $Lang
+        langForced = $PSBoundParameters.ContainsKey('Lang')   # an explicit -Lang wins over the language remembered by the page
+        skillsDir  = $SkillsDir
+        skills     = @(foreach ($s in $skills) {
+                [ordered]@{
+                    name      = $s.Name
+                    category  = $(if ($groups[$s.Name]) { $groups[$s.Name] } else { 'other' })
+                    summary   = $s.Summary
+                    summaryRu = $(if ($ru[$s.Name]) { $ru[$s.Name] } else { $null })
+                    useWhen   = $s.UseWhen
+                    installed = @(Get-InstalledAt $s.Name)
+                    scripts   = @(foreach ($sc in $s.Scripts) {
+                            [ordered]@{
+                                file       = $sc.Name
+                                usage      = @(if ($sc.Extension -eq '.ps1') { Get-SkillHeaderComment $sc.FullName | Select-Object -First 12 })
+                                parameters = @(if ($sc.Extension -eq '.ps1') {
+                                        Get-ScriptParams $sc.FullName | ForEach-Object { [ordered]@{ name = $_.Name; type = $_.Type; default = $_.Default; mandatory = $_.Mandatory } }
+                                    })
+                            }
+                        })
+                }
+            })
+    }
+    # "</" would end the <script> block the JSON is embedded in
+    $json = ($data | ConvertTo-Json -Depth 8 -Compress).Replace('</', '<\/')
+    $html = [IO.File]::ReadAllText($template, [Text.Encoding]::UTF8).Replace('__SKILLS_JSON__', $json)
+    $outDir = Split-Path -Parent $Out
+    if ($outDir -and -not (Test-Path -LiteralPath $outDir)) { New-Item -ItemType Directory -Force -Path $outDir | Out-Null }
+    [IO.File]::WriteAllText($Out, $html, (New-Object Text.UTF8Encoding($true)))
+    Write-Host "HTML help ($(@($skills).Count) skills): $Out"
+    if ($Open) { Start-Process -FilePath $Out }
+    exit 0
+}
+
 if ($Format -eq 'Markdown' -and -not $detailed) {
     '| Skill | Description |'
     '|-------|-------------|'
@@ -160,7 +212,7 @@ if (-not $detailed) {
     }
     Write-Host ''
     Write-Host '  Details:   skills_info.ps1 -Name <skill>     All details: -Full     Where installed: -Where' -ForegroundColor DarkGray
-    Write-Host '  Other:     -Format Markdown | Json     Language: -Lang ru | en | both' -ForegroundColor DarkGray
+    Write-Host '  Other:     -Format Markdown | Json | Html (-Open)     Language: -Lang ru | en | both' -ForegroundColor DarkGray
     if ($Where) {
         Write-Host ''
         foreach ($s in $skills) {
