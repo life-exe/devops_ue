@@ -20,6 +20,11 @@
 | `ue-add-test` | Writes real automation tests for a given class (spec/legacy from the templates), runs them until green |
 | `ue-plugin-create` | Creates a C++ plugin skeleton (Runtime/Editor/Developer module, optional Editor module and Content), wires it into the game Build.cs |
 | `ue-plugin-package` | Packages a plugin with UAT BuildPlugin for chosen platforms, checks binaries, optional zip / Fab strict includes |
+| `ue-target-create` | Creates Client / Server / Editor target rules (`Source\<Name>Client.Target.cs` ...) from the project's game target |
+| `ue-help` | Lists all skills with descriptions, scripts and parameters, where they are installed; recommends a skill for a task |
+
+The same overview without an agent: `powershell -ExecutionPolicy Bypass -File ue-help\scripts\skills_info.ps1`
+(`-Name <skill>` details, `-Full` everything, `-Where` install folders, `-Format Markdown|Json`, `-Lang ru|en|both`).
 
 ## Install
 
