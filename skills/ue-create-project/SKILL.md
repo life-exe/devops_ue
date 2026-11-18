@@ -65,14 +65,21 @@ Ask in this order. Use `AskUserQuestion` for choices; free text (project name) i
    * `Unreal template` - then run
      `ue_info.ps1 -Templates -EnginePath "<path>" -Type Cpp|Blueprint`
      and ask which template (show `DisplayName`, pass `Name` to the script). Prefer `Category = Games`
-     ones (Third Person, First Person, Top Down, Vehicle, ...). Template variants are not supported.
+     ones (Third Person, First Person, Top Down, Vehicle, ...).
+   * **Variant** - the `Variants` array of the chosen template in the same JSON (C++ templates of UE 5.6+: Third Person has
+     Combat / Platforming / SideScrolling, First Person Shooter / Horror, Top Down Strategy / TwinStick, Vehicle OffRoad /
+     TimeTrial). If it is not empty, ask which variant (options: the variants plus "Default template level" - the
+     template's own level; pass `-Variant <Name>` only for a variant). It is the editor's "Variants" dropdown: the variant
+     level becomes the start map and cooked map, its game mode the default one. All variants' code and content are copied
+     either way (as the editor does), so the variant can be switched later in Project Settings > Maps & Modes. Empty
+     `Variants` (Blueprint templates, other templates) -> do not ask.
 7. **Packaging** - package the game right after creation (`Development`, Win64)? Default: no, it takes long.
 8. **devops_ue** - default: added as a git submodule (`git submodule add <origin url of this devops_ue>`).
    Only ask if the user mentioned they are offline / want a plain copy -> `-DevopsMode Copy`.
 
 Batch questions 3-7 into one or two `AskUserQuestion` calls where possible, but every one of them must be
 asked - none is skipped because of the project type. Before running, show a short summary of all answers
-(name, folder, type, company, **copyright**, engine, start map, packaging) and get a confirmation.
+(name, folder, type, company, **copyright**, engine, start map / template / variant, packaging) and get a confirmation.
 
 `AskUserQuestion` limits: 1-4 questions per call, 2-4 options per question, header up to 12 characters.
 Never add an option whose meaning is "type it yourself" - that is what the built-in "Other" is for.
@@ -83,7 +90,7 @@ Never add an option whose meaning is "type it yourself" - that is what the built
 powershell -NoProfile -ExecutionPolicy Bypass -File "<skill dir>/scripts/create_project.ps1" `
   -ProjectName "<Name>" (-ProjectDir "<project folder>" | -ParentDir "<parent>") -Type Cpp|Blueprint `
   -EnginePath "<engine path>" -EngineAssociation "<Association from ue_info>" `
-  -Template Empty|<TP_TemplateName> -Copyright "<copyright>" [-CompanyName "<company>"] [-Package]
+  -Template Empty|<TP_TemplateName> [-Variant <Combat|Shooter|...>] -Copyright "<copyright>" [-CompanyName "<company>"] [-Package]
 ```
 
 * Pass `-DevopsSource "<path>\devops_ue"` if the script can't find devops_ue itself (it looks next to the

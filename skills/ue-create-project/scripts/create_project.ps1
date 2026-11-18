@@ -19,6 +19,10 @@ param(
     [Parameter(Mandatory)][string]$EnginePath,
     # 'Empty' = blank project + empty /Game/Maps/MainLevel, otherwise an engine template folder name (TP_ThirdPerson, TP_TopDownBP, ...)
     [string]$Template = 'Empty',
+    # genre variant of a C++ template (Combat, Platforming, SideScrolling, Shooter, Horror, Strategy, TwinStick, OffRoad, TimeTrial ...):
+    # becomes the start map / default game mode, like the "Variants" dropdown of the editor. Empty = the template's own default level.
+    # The files of all variants are copied either way, as the editor does.
+    [string]$Variant = '',
     [Parameter(Mandatory)][string]$Copyright,
     [string]$CompanyName = '',
     [string]$EngineAssociation = '',
@@ -242,6 +246,17 @@ $templateHasSource = Test-Path -LiteralPath (Join-Path $TemplateDir 'Source')
 if ($Type -eq 'Cpp' -and -not $templateHasSource) { throw "$TemplateName is a Blueprint template, pick its C++ version." }
 if ($Type -eq 'Blueprint' -and $templateHasSource) { throw "$TemplateName is a C++ template, pick its Blueprint version." }
 
+$variantInfo = $null
+if ($Variant) {
+    if ($isEmpty) { throw "-Variant needs an engine template (-Template TP_...), not Empty" }
+    $variants = @(Get-TemplateVariants -TemplateDir $TemplateDir)
+    $variantInfo = $variants | Where-Object { $_.Name -eq ($Variant -replace '^Variant_', '') } | Select-Object -First 1
+    if (-not $variantInfo) {
+        $have = if ($variants) { ($variants | ForEach-Object Name) -join ', ' } else { 'none: Blueprint templates and old engines have no variants' }
+        throw "$TemplateName has no variant '$Variant' (available: $have)"
+    }
+}
+
 $Copyright = $Copyright.Trim() -replace '^//\s*', ''
 $CopyrightLine = "// $Copyright"
 $ApiMacro = "$($ProjectName.ToUpperInvariant())_API"
@@ -249,7 +264,7 @@ $UProjectPath = Join-Path $ProjectRoot "$ProjectName.uproject"
 
 Write-Host "Project : $ProjectRoot ($Type)"
 Write-Host "Engine  : $EnginePath ($($engineInfo.Version), association '$EngineAssociation')"
-Write-Host "Template: $TemplateName$(if ($isEmpty) { ' + empty MainLevel' })"
+Write-Host "Template: $TemplateName$(if ($isEmpty) { ' + empty MainLevel' })$(if ($variantInfo) { ", variant $($variantInfo.Name)" })"
 Write-Host "Devops  : $DevopsSource ($DevopsMode)"
 
 # ---------------------------------------------------------------------------------------------
@@ -356,6 +371,15 @@ if ($isEmpty) {
     Set-IniValue $defaultEngine $maps 'EditorStartupMap' "$mainMap.MainLevel"
 }
 else {
+    if ($variantInfo) {
+        # what the editor's "Variants" dropdown does: start map and game mode of the chosen genre
+        $mapObject = "$($variantInfo.Map).$(($variantInfo.Map -split '/')[-1])"
+        Set-IniValue $defaultEngine $maps 'GameDefaultMap' $mapObject
+        Set-IniValue $defaultEngine $maps 'EditorStartupMap' $mapObject
+        if ($variantInfo.GameMode) { Set-IniValue $defaultEngine $maps 'GlobalDefaultGameMode' $variantInfo.GameMode }
+        else { Write-Host "  variant $($variantInfo.Name) has no game mode blueprint: the game mode comes from the level" }
+        Write-Host "  variant $($variantInfo.Name): start map $mapObject"
+    }
     $gameMap = Get-IniValue $defaultEngine 'GameDefaultMap'
     $mainMap = if ($gameMap -like '/Game/*') { $gameMap -replace '\.[^./]+$', '' } else { '' }
 }

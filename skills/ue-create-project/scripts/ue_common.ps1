@@ -99,6 +99,30 @@ function Get-TemplateDisplayName {
     return ''
 }
 
+# Genre variants of a C++ template (UE 5.6+: Content\Variant_<Name>\...\<Level>.umap). The editor's "Variants" dropdown only picks
+# the start map / game mode; the template files of all variants are always copied. Returns Name, Folder, Map (/Game/... without
+# the object suffix), GameMode (/Game/...BP_x.BP_x_C or '' when the variant has no game mode blueprint).
+function Get-TemplateVariants {
+    param([Parameter(Mandatory)][string]$TemplateDir)
+
+    $content = Join-Path $TemplateDir 'Content'
+    foreach ($dir in Get-ChildItem -LiteralPath $content -Directory -Filter 'Variant_*' -ErrorAction SilentlyContinue | Sort-Object Name) {
+        $map = Get-ChildItem -LiteralPath $dir.FullName -Recurse -Filter '*.umap' -File | Sort-Object { $_.FullName.Length } | Select-Object -First 1
+        if (-not $map) { continue }
+        $toGame = { param($f) '/Game/' + $f.FullName.Substring($content.TrimEnd('\').Length + 1).Replace('\', '/') -replace '\.[^./]+$', '' }
+        $gm = @(Get-ChildItem -LiteralPath $dir.FullName -Recurse -Filter 'BP_*GameMode*.uasset' -File)
+        $gmPath = ''
+        if ($gm.Count -eq 1) { $p = & $toGame $gm[0]; $gmPath = "$p.$([IO.Path]::GetFileNameWithoutExtension($gm[0].Name))_C" }
+        $mapPath = & $toGame $map
+        [pscustomobject]@{
+            Name     = $dir.Name.Substring('Variant_'.Length)
+            Folder   = $dir.Name
+            Map      = $mapPath
+            GameMode = $gmPath
+        }
+    }
+}
+
 function Get-UnrealTemplates {
     param([Parameter(Mandatory)][string]$EnginePath, [ValidateSet('Cpp', 'Blueprint')][string]$Type = 'Cpp')
 
@@ -119,6 +143,7 @@ function Get-UnrealTemplates {
             Name        = $dir.Name
             DisplayName = Get-TemplateDisplayName $defs
             Category    = $category
+            Variants    = @(Get-TemplateVariants -TemplateDir $dir.FullName | ForEach-Object Name)
         }
     }
 }
