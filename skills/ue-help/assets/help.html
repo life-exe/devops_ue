@@ -86,6 +86,8 @@
       .req { color: #c0392b; }
       .empty { color: var(--muted); padding: 32px 0; }
       footer { color: var(--muted); font-size: 13px; padding-bottom: 48px; }
+      footer a { color: var(--accent); text-decoration: none; }
+      footer a:hover { text-decoration: underline; }
       @media (max-width: 640px) { col.c-nm { width: 120px; } }
       @media print { .tools, #q { display: none; } tr.detail[hidden] { display: table-row; } }
     </style>
@@ -139,7 +141,10 @@
         set(k, v) { try { localStorage.setItem(k, v); } catch { /* storage may be blocked */ } },
       };
       const savedLang = store.get("ue-help-lang");
-      if ((savedLang === "ru" || savedLang === "en") && !D.langForced) state.lang = savedLang;
+      if (!D.langForced) {
+        if (savedLang === "ru" || savedLang === "en") state.lang = savedLang;
+        else if (D.public) state.lang = (navigator.language || "").toLowerCase().startsWith("ru") ? "ru" : "en";
+      }
       const savedTheme = store.get("ue-help-theme");
       if (savedTheme === "light" || savedTheme === "dark") document.documentElement.dataset.theme = savedTheme;
 
@@ -162,6 +167,7 @@
               return `<h4 class="mono">scripts\\${esc(sc.file)}</h4>${usage}${table}`;
             }).join("")
           : `<div class="sec">${t.noScripts}</div>`;
+        if (D.public) return scripts;
         const inst = (s.installed || []).length ? s.installed.join(", ") : t.notInstalled;
         return `${scripts}<h4>${t.installed}</h4><div class="sec">${esc(inst)}</div>`;
       }
@@ -179,7 +185,8 @@
         $("sub").textContent = `${D.skills.length} ${t.sub} · ${t.hint}`;
         $("q").placeholder = t.search;
         $("theme").textContent = t.theme;
-        $("foot").textContent = `${t.foot}: ${D.generated} · ${D.skillsDir}`;
+        const repo = D.public ? ` · <a href="https://github.com/life-exe/devops_ue">github.com/life-exe/devops_ue</a>` : "";
+        $("foot").innerHTML = `${esc(t.foot)}: ${esc(D.generated)}${D.skillsDir ? " · " + esc(D.skillsDir) : ""}${repo}`;
         document.querySelectorAll("#langs button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.lang === state.lang)));
         let body = "";
         for (const c of CATS) {

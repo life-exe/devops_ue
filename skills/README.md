@@ -26,6 +26,10 @@ The same overview without an agent: `powershell -ExecutionPolicy Bypass -File ue
 `-Format Html -Open` writes a self-contained help page (a minimal table with search, groups, RU/EN switch, parameters of every script) and opens it
 in the browser; `/ue-help` does this by default.
 
+The same page is published to GitHub Pages by `.github/workflows/pages.yml` on every push to `master` that touches `skills/`
+(built with `-Format Html -Public`: no local paths or install locations, the language follows the browser).
+One-time setup: repository Settings > Pages > Build and deployment > Source: GitHub Actions.
+
 ## Install
 
 ```

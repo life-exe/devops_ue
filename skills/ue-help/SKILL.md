@@ -26,7 +26,8 @@ there, otherwise its Russian text falls back to English.
   with the skills grouped by purpose, search (`/`), RU / EN switch, light/dark theme, a click on a name copies
   `/ue-...`, a click on a row shows the scripts with usage lines, parameters (type, default) and where the skill is
   installed. `-Open` opens it in the browser. `-Lang ru|en` sets the language the page starts in (`both` starts in
-  Russian). The page template is `assets/help.html`.
+  Russian). The page template is `assets/help.html`. `-Public` makes the page for publishing: no local paths, no install
+  locations, the language follows the browser (used by `.github/workflows/pages.yml`, which deploys it to GitHub Pages).
 
 ## What to do
 

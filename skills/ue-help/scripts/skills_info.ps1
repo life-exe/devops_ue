@@ -8,6 +8,7 @@
 #   skills_info.ps1 -Where             # + the folders where each skill is installed (user / project, per agent)
 #   skills_info.ps1 -Format Html -Open # a self-contained HTML help page (search, groups, RU/EN switch, parameters), opened in the browser
 #   skills_info.ps1 -Format Html -Out C:\Temp\skills.html -Lang ru   # where to write it (default: %TEMP%\ue-skills-help.html) + start language
+#   skills_info.ps1 -Format Html -Public -Out _site\index.html       # for publishing (GitHub Pages workflow): no local paths / install locations
 [CmdletBinding()]
 param(
     [string]$Name = '',
@@ -17,6 +18,7 @@ param(
     [ValidateSet('Table', 'Markdown', 'Json', 'Html')][string]$Format = 'Table',
     [string]$Out = '',     # -Format Html: output file
     [switch]$Open,         # -Format Html: open the page in the default browser
+    [switch]$Public,       # -Format Html: a page to publish (GitHub Pages): no local paths, no install locations, language from the browser
     # language of the descriptions: en (SKILL.md text), ru (summaries.ru.json), both (ru + en)
     [ValidateSet('en', 'ru', 'both')][string]$Lang = 'en',
     [string]$SkillsDir = '',
@@ -156,8 +158,9 @@ if ($Format -eq 'Html') {
     $data = [ordered]@{
         generated  = (Get-Date -Format 'yyyy-MM-dd HH:mm')
         lang       = $Lang
-        langForced = $PSBoundParameters.ContainsKey('Lang')   # an explicit -Lang wins over the language remembered by the page
-        skillsDir  = $SkillsDir
+        langForced = ($PSBoundParameters.ContainsKey('Lang') -and -not $Public)   # an explicit -Lang wins over the language remembered by the page
+        public     = [bool]$Public
+        skillsDir  = $(if ($Public) { '' } else { $SkillsDir })
         skills     = @(foreach ($s in $skills) {
                 [ordered]@{
                     name      = $s.Name
@@ -165,7 +168,7 @@ if ($Format -eq 'Html') {
                     summary   = $s.Summary
                     summaryRu = $(if ($ru[$s.Name]) { $ru[$s.Name] } else { $null })
                     useWhen   = $s.UseWhen
-                    installed = @(Get-InstalledAt $s.Name)
+                    installed = @(if (-not $Public) { Get-InstalledAt $s.Name })
                     scripts   = @(foreach ($sc in $s.Scripts) {
                             [ordered]@{
                                 file       = $sc.Name

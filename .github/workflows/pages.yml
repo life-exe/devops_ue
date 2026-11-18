@@ -1,0 +1,66 @@
+# Publishes the skills help page (skills/ue-help) to GitHub Pages.
+# One-time setup: repository Settings -> Pages -> Build and deployment -> Source: GitHub Actions.
+name: Skills help page
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "skills/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    # skills_info.ps1 is written for Windows PowerShell
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate the page
+        shell: powershell
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File skills/ue-help/scripts/skills_info.ps1 -Format Html -Public -Out _site/index.html
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not (Test-Path _site/index.html)) { throw 'the page was not generated' }
+          # nothing from the build machine may reach the public page
+          $html = [IO.File]::ReadAllText((Resolve-Path _site/index.html))
+          foreach ($leak in 'D:\\a\\', 'C:\\Users', $env:USERPROFILE.Replace('\', '\\')) {
+            if ($leak -and $html.Contains($leak)) { throw "local path '$leak' found in the page" }
+          }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: site
+          path: _site
+          if-no-files-found: error
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: site
+          path: _site
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
