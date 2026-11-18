@@ -19,6 +19,7 @@ Each subfolder of the current repo has an additional readme page for further inf
 * Documentation generation with doxygen
 * Jenkins' pipelines
 * GitHub webhooks, slack notifications, schedules, ngrok etc.
+* [AI agent skills](#ai-agent-skills): create a project, check the environment, tests, build, package, docs - in plain words or with `/ue-*` commands
 
 ## How To Setup
 
@@ -109,17 +110,23 @@ PROJECT_NAME           = "My Project"
 * Now you can quickly generate project files, format all source files with **.clang-format**, clean intermediates, run tests and docs generation
 * More useful scripts can be found inside other folders of **devops_ue**
 
-## Create a New Project (Claude Code skill)
+## AI Agent Skills
 
-The **skills** folder contains [Claude Code](https://docs.claude.com/en/docs/claude-code) skills. `ue-create-project` creates a new UE5 project from scratch: asks for the name, C++/Blueprint, copyright, engine version (auto-detected) and start map (empty `MainLevel` or an Unreal template), then adds **devops_ue**, runs **setup.bat**, fills configs, copies `.clang-format`, `.gitignore`, bat scripts, skills and `AGENTS.md`, creates `A<ProjectName>GameMode` for C++ projects and optionally packages the game.
+The **skills** folder contains skills for AI coding agents ([Claude Code](https://docs.claude.com/en/docs/claude-code), Codex, OpenCode, Antigravity). A skill is a directory with a `SKILL.md` (instructions for the agent) and the scripts it runs. Describe the task in plain words ("check the environment", "create a new C++ project", "run the tests with coverage") or call a skill with `/ue-<name>`: the agent picks the skill, runs the scripts, reads the log and reports the result.
+
+* **Environment:** `ue-check-env`, `ue-install-env`
+* **Project:** `ue-create-project`, `ue-upgrade-engine`, `ue-clean`, `ue-content-audit`
+* **Code:** `ue-format`, `ue-run-tests`, `ue-add-test`, `ue-docs`, `ue-plugin-create`, `ue-plugin-package`
+* **Build and release:** `ue-target-create`, `ue-cook`, `ue-package`
+* **Help:** `ue-help`
+
+The skills are a thin layer over the same bat scripts and templates: the repository works without AI, and dangerous operations (deleting, installing, uploading) go through a dry run and a confirmation.
 
 ```
 skills\install_skills.bat
 ```
 
-Then type `/ue-create-project` in Claude Code. See [skills/README.md](skills/README.md).
-
-Web skills: `/ue-web-setup` (everything for Wasm: emsdk, plugins, Wasm settings, SDK check, packaging) and `/ue-web-deploy` (butler / Vercel CLI / GitHub CLI install, deploy to itch.io, Vercel or a GitHub release).
+Then type `/ue-help` in your agent: it opens an HTML overview of all skills with their scripts and parameters. The same page is published online: **[life-exe.github.io/devops_ue](https://life-exe.github.io/devops_ue/)**. Details: [skills/README.md](skills/README.md).
 
 ## Web (Wasm + WebGPU) Setup from Scratch
 
