@@ -6,6 +6,9 @@
 #   run_tests.ps1 -ProjectPath C:\Game -Coverage -JUnit         # + OpenCppCoverage html/cobertura, + JUnit xml for CI
 #   run_tests.ps1 -ProjectPath C:\Game -NewSpec WeaponComponent -Dir Tests\Weapon   # new spec file from the devops_ue template
 #   run_tests.ps1 -ProjectPath C:\Game -NewTest WeaponMath -Dir Tests               # new legacy test (.h/.cpp)
+#   run_tests.ps1 -ProjectPath C:\Game -NewTestModule GameTests                     # separate Editor test module Source\GameTests
+#   run_tests.ps1 -ProjectPath C:\Game -NewTestModule WeaponTestRunner -Plugin Weapon   # ... inside Plugins\Weapon (module under test: Weapon)
+#   run_tests.ps1 -ProjectPath C:\Game -NewSpec WeaponComponent -Module GameTests   # spec file inside that module
 [CmdletBinding()]
 param(
     [string]$ProjectPath = '.',
@@ -18,6 +21,14 @@ param(
     [switch]$WithRHI,
     [string]$NewSpec = '',
     [string]$NewTest = '',
+    # with -NewSpec/-NewTest: write the file into this module (a test module from -NewTestModule) instead of Source\<Project>;
+    # -Dir is then relative to the module's Private folder (default: Private itself)
+    [string]$Module = '',
+    # creates a separate Editor test module <Name> (Source\<Name> or Plugins\<Plugin>\Source\<Name>) and registers it in the
+    # .uproject / .uplugin; -Plugin puts it into that plugin, -TestedModule is the module under test (default: the plugin / the game module)
+    [string]$NewTestModule = '',
+    [string]$Plugin = '',
+    [string]$TestedModule = '',
     [string]$Dir = 'Tests',
     [string]$EnginePath = '',
     [int]$TimeoutMinutes = 60
@@ -138,22 +149,158 @@ if (-not (Test-Path -LiteralPath (Join-Path $sourceDir $ProjectName))) { throw "
 Write-Host "  $UProjectPath"
 
 # ---------------------------------------------------------------------------------------------
+function Get-Copyright {
+    $c = Get-ConfigValue $configBat 'COPYRIGHT_LINE'
+    if (-not $c -or $c -match 'My game copyright') {
+        $notice = ''
+        $dg = Join-Path $ProjectRoot 'Config\DefaultGame.ini'
+        if (Test-Path -LiteralPath $dg) { $notice = ([regex]::Match((Read-Text $dg), '(?m)^CopyrightNotice=(.*)$')).Groups[1].Value.Trim() }
+        $c = if ($notice) { "// $notice" } else { "// Copyright $ProjectName. All Rights Reserved." }
+    }
+    return $c
+}
+# folder of a module: Source\<Name> of the project or of any project plugin
+function Find-ModuleDir([string]$ModuleName) {
+    $p = Join-Path $sourceDir $ModuleName
+    if (Test-Path -LiteralPath (Join-Path $p "$ModuleName.Build.cs")) { return $p }
+    foreach ($pattern in "Plugins\*\Source\$ModuleName", "Plugins\*\*\Source\$ModuleName", "Plugins\*\*\*\Source\$ModuleName") {
+        $hit = Get-ChildItem -Path (Join-Path $ProjectRoot $pattern) -Directory -ErrorAction SilentlyContinue |
+            Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName "$ModuleName.Build.cs") } | Select-Object -First 1
+        if ($hit) { return $hit.FullName }
+    }
+    return $null
+}
+
+# ---------------------------------------------------------------------------------------------
+if ($NewTestModule) {
+    Write-Step "New test module $NewTestModule"
+    $mod = $NewTestModule
+    if ($mod -notmatch '^[A-Za-z_][A-Za-z0-9_]*$') { throw "Invalid module name '$mod'" }
+    if ($Plugin) {
+        $descriptor = Get-ChildItem -Path (Join-Path $ProjectRoot 'Plugins') -Recurse -Depth 3 -Filter "$Plugin.uplugin" -File -ErrorAction SilentlyContinue | Select-Object -First 1
+        if (-not $descriptor) { throw "Plugin '$Plugin' not found in Plugins\ (no $Plugin.uplugin)" }
+        $modRoot = Join-Path (Split-Path -Parent $descriptor.FullName) "Source\$mod"
+        if (-not $TestedModule) { $TestedModule = $Plugin }
+    }
+    else {
+        $descriptor = Get-Item -LiteralPath $UProjectPath
+        $modRoot = Join-Path $sourceDir $mod
+        if (-not $TestedModule) { $TestedModule = $ProjectName }
+    }
+    if (-not (Find-ModuleDir $TestedModule)) { throw "Module under test '$TestedModule' not found (Source\$TestedModule\$TestedModule.Build.cs): pass -TestedModule" }
+    if ((Test-Path -LiteralPath $modRoot) -or (Find-ModuleDir $mod)) { throw "Module '$mod' already exists: $modRoot" }
+    $copyright = Get-Copyright
+
+    # register the module in the .uproject / .uplugin (text edit: the rest of the file keeps its formatting)
+    $json = Read-Text $descriptor.FullName
+    $m = [regex]::Match($json, '"Modules"\s*:\s*\[')
+    if (-not $m.Success) { throw "No ""Modules"" array in $($descriptor.Name)" }
+    $depth = 0; $close = -1
+    for ($i = $m.Index + $m.Length - 1; $i -lt $json.Length; $i++) {
+        if ($json[$i] -eq '[') { $depth++ } elseif ($json[$i] -eq ']') { $depth--; if ($depth -eq 0) { $close = $i; break } }
+    }
+    if ($close -lt 0) { throw "Unbalanced ""Modules"" array in $($descriptor.Name)" }
+    if ($json -match "`"Name`"\s*:\s*`"$mod`"") { throw "$($descriptor.Name) already lists a module '$mod'" }
+    $nl = if ($json.Contains("`r`n")) { "`r`n" } else { "`n" }
+    $indent = if ($json.Contains("`t")) { "`t" } else { '    ' }
+    $entry = "$indent$indent{$nl$indent$indent$indent`"Name`": `"$mod`",$nl$indent$indent$indent`"Type`": `"Editor`",$nl$indent$indent$indent`"LoadingPhase`": `"Default`"$nl$indent$indent}"
+    $before = $json.Substring(0, $close).TrimEnd()
+    $newJson = $before + ",$nl$entry$nl$indent" + $json.Substring($close)
+    try { $null = $newJson | ConvertFrom-Json } catch { throw "The edited $($descriptor.Name) is not valid JSON, nothing written: $($_.Exception.Message)" }
+
+    Write-Text (Join-Path $modRoot "$mod.Build.cs") @"
+$copyright
+
+using UnrealBuildTool;
+
+public class $mod : ModuleRules
+{
+    public $mod(ReadOnlyTargetRules Target) : base(Target)
+    {
+        PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
+
+        // clang-format off
+        PrivateDependencyModuleNames.AddRange(
+            new string[]
+            {
+                "Core",
+                "CoreUObject",
+                "Engine",
+                "$TestedModule"
+            });
+        // clang-format on
+
+        if (Target.Configuration != UnrealTargetConfiguration.Shipping)
+        {
+            PublicDependencyModuleNames.Add("FunctionalTesting");
+        }
+    }
+}
+"@
+    Write-Text (Join-Path $modRoot "Public\$mod.h") @"
+$copyright
+
+#pragma once
+
+#include "Modules/ModuleManager.h"
+
+class F${mod}Module : public IModuleInterface
+{
+public:
+    virtual void StartupModule() override;
+    virtual void ShutdownModule() override;
+};
+"@
+    Write-Text (Join-Path $modRoot "Private\$mod.cpp") @"
+$copyright
+
+#include "$mod.h"
+
+#define LOCTEXT_NAMESPACE "F${mod}Module"
+
+void F${mod}Module::StartupModule() {}
+
+void F${mod}Module::ShutdownModule() {}
+
+#undef LOCTEXT_NAMESPACE
+
+IMPLEMENT_MODULE(F${mod}Module, $mod)
+"@
+    Write-Text $descriptor.FullName $newJson
+    if (Get-Command clang-format -ErrorAction SilentlyContinue) {
+        Get-ChildItem -LiteralPath $modRoot -Recurse -Include *.cs, *.h, *.cpp -File | ForEach-Object { & clang-format -i $_.FullName }
+    }
+    Write-Host "  created $modRoot  (Editor module, depends on $TestedModule; FunctionalTesting in non-Shipping builds)"
+    Write-Host "  registered in $($descriptor.FullName)"
+    Write-Host "  next: -NewSpec <Class>Tests -Module $mod  (tests see only the PUBLIC headers of $TestedModule)"
+    Write-Host "  next: regenerate the project files (devops_data\generate_project_files.bat) and close the editor before the build: Live Coding cannot add a module"
+    Write-Host "  test categories: use '$ProjectName.<Area>.<Name>' or run with -Filter <your prefix>: the default filter is the project name"
+    Write-FinalStep 'Done'
+    Write-Timing
+    exit 0
+}
+
+# ---------------------------------------------------------------------------------------------
 if ($NewSpec -or $NewTest) {
     Write-Step 'New test file'
     $name = if ($NewSpec) { $NewSpec } else { $NewTest }
     if ($name -notmatch '^[A-Za-z_][A-Za-z0-9_]*$') { throw "Invalid test class name '$name'" }
     $tplDir = Join-Path $ProjectRoot 'devops_ue\tests\templates'
     if (-not (Test-Path -LiteralPath $tplDir)) { throw "Templates not found: $tplDir (devops_ue submodule missing?)" }
-    $copyright = Get-ConfigValue $configBat 'COPYRIGHT_LINE'
-    if (-not $copyright -or $copyright -match 'My game copyright') {
-        $notice = ''
-        $dg = Join-Path $ProjectRoot 'Config\DefaultGame.ini'
-        if (Test-Path -LiteralPath $dg) { $notice = ([regex]::Match((Read-Text $dg), '(?m)^CopyrightNotice=(.*)$')).Groups[1].Value.Trim() }
-        $copyright = if ($notice) { "// $notice" } else { "// Copyright $ProjectName. All Rights Reserved." }
+    $copyright = Get-Copyright
+    if ($Module) {
+        # tests of a separate test module: Private\<Dir>, the include path is relative to Private
+        $modDir = Find-ModuleDir $Module
+        if (-not $modDir) { throw "Module '$Module' not found: create it first with -NewTestModule $Module" }
+        $relDir = if ($PSBoundParameters.ContainsKey('Dir')) { $Dir.Trim('\', '/').Replace('/', '\') } else { '' }
+        $absDir = if ($relDir) { Join-Path (Join-Path $modDir 'Private') $relDir } else { Join-Path $modDir 'Private' }
+        $includePath = (@(@($relDir) | Where-Object { $_ }) + @("$name.h")) -join '/'
     }
-    $relDir = $Dir.Trim('\', '/').Replace('/', '\')
-    $absDir = if ($relDir) { Join-Path (Join-Path $sourceDir $ProjectName) $relDir } else { Join-Path $sourceDir $ProjectName }
-    $includePath = (@($ProjectName) + $(if ($relDir) { @($relDir) } else { @() }) + @("$name.h")) -join '/'
+    else {
+        $relDir = $Dir.Trim('\', '/').Replace('/', '\')
+        $absDir = if ($relDir) { Join-Path (Join-Path $sourceDir $ProjectName) $relDir } else { Join-Path $sourceDir $ProjectName }
+        $includePath = (@($ProjectName) + $(if ($relDir) { @($relDir) } else { @() }) + @("$name.h")) -join '/'
+    }
     $includePath = $includePath.Replace('\', '/')
     function Expand-Template([string]$TemplateFile) {
         $out = foreach ($line in [IO.File]::ReadAllLines($TemplateFile)) {

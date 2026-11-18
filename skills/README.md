@@ -15,7 +15,7 @@
 | `ue-content-audit` | Content size by folder/type/class, largest packages, unreferenced candidates, big textures, redirectors; Markdown or HTML report |
 | `ue-format` | clang-format over Source (or changed files / chosen paths / plugins), rewrites only files that differ; `-Check` for CI |
 | `ue-cook` | BuildCookRun cook only (Win64/Linux/Wasm, Game/Client/Server, incremental), reports cooked size and cook errors |
-| `ue-add-test` | Writes real automation tests for a given class (spec/legacy from the templates), runs them until green |
+| `ue-add-test` | Writes real automation tests for a given class (spec/legacy from the templates), offers a separate test module, runs them until green |
 | `ue-plugin-create` | Creates a C++ plugin skeleton (Runtime/Editor/Developer module, optional Editor module and Content), wires it into the game Build.cs |
 | `ue-plugin-package` | Packages a plugin with UAT BuildPlugin for chosen platforms, checks binaries, optional zip / Fab strict includes |
 | `ue-target-create` | Creates Client / Server / Editor target rules (`Source\<Name>Client.Target.cs` ...) from the project's game target |

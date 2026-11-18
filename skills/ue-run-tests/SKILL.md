@@ -10,6 +10,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "<skill dir>/scripts/run_tes
 powershell -NoProfile -ExecutionPolicy Bypass -File "<skill dir>/scripts/run_tests.ps1" -ProjectPath "<project>" -List [-Filter ...]
 powershell -NoProfile -ExecutionPolicy Bypass -File "<skill dir>/scripts/run_tests.ps1" -ProjectPath "<project>" -NewSpec <Name> [-Dir Tests\Area]
 powershell -NoProfile -ExecutionPolicy Bypass -File "<skill dir>/scripts/run_tests.ps1" -ProjectPath "<project>" -NewTest <Name> [-Dir Tests]
+powershell -NoProfile -ExecutionPolicy Bypass -File "<skill dir>/scripts/run_tests.ps1" -ProjectPath "<project>" -NewTestModule <Name> [-Plugin <Plugin>] [-TestedModule <Module>]
+powershell -NoProfile -ExecutionPolicy Bypass -File "<skill dir>/scripts/run_tests.ps1" -ProjectPath "<project>" -NewSpec <Name> -Module <TestModule> [-Dir <Area>]
 ```
 
 Talk to the user in their language. Needs a C++ module (`Source\<Name>`); the engine comes from
@@ -42,6 +44,11 @@ propose a fix; re-run only that test with `-Filter <its full path> -SkipBuild` w
 `-SkipBuild` after a code change. Don't weaken a test to make it pass without saying so.
 
 ## New tests
+
+`-NewTestModule <Name>` creates a separate Editor test module (`Source\<Name>`, or `Plugins\<Plugin>\Source\<Name>` with
+`-Plugin`) that depends on the module under test (`-TestedModule`, default the plugin / the game module) and registers it
+in the `.uproject` / `.uplugin`; `-NewSpec/-NewTest ... -Module <Name>` then put tests into its `Private` folder. Regenerate
+the project files afterwards (editor closed). The `ue-add-test` skill offers this to the user.
 
 `-NewSpec <Name>` -> `Source\<Project>\<Dir>\<Name>.spec.cpp`; `-NewTest <Name>` -> `<Name>.h/.cpp` (legacy
 `IMPLEMENT_SIMPLE_AUTOMATION_TEST`). Templates: `devops_ue\tests\templates`, copyright from `config.bat` /

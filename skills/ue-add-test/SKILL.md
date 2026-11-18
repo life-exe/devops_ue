@@ -24,12 +24,39 @@ mirror their style, naming and helpers.
   copy the ones you need into `Source\<Project>\Tests\Utils` and fix their include paths.
 * Pure logic (no UObjects) -> plain objects, no world, fastest.
 
+## 2a. Where the tests live: offer a separate test module
+
+Before the first test of a project / plugin, **ask the user** (once, with a recommendation) where to put the tests:
+
+* **Separate test module** (recommended for plugins and bigger projects): an Editor-only module that depends on the module
+  under test, e.g. `OpenAITestRunner` next to `OpenAI` and `OpenAIEditor` in the plugin
+  <https://github.com/life-exe/UnrealOpenAIPlugin/tree/master/Source>. Production code stays free of test code and
+  `FunctionalTesting`, the tests are never packaged, and the plugin can ship without them. Cost: the tests see only the
+  **public** headers of the module under test (say so, and offer to move a header to `Public` when a test needs it),
+  and a new module needs project files regenerated and an editor restart.
+* **Inside the game module** (`Source\<Project>\Tests`): simplest, can reach private headers; fine for a small project.
+
+If an existing test module is already there (`Source\*Tests*`, `*TestRunner*`), use it and do not ask. For a separate module:
+
+```
+powershell -NoProfile -ExecutionPolicy Bypass -File "<run-tests skill dir>/scripts/run_tests.ps1" -ProjectPath "<project>" -NewTestModule <Name> [-Plugin <PluginName>] [-TestedModule <Module>]
+```
+
+Name it `<Plugin>TestRunner` / `<Project>Tests`. It creates `Source\<Name>` (or `Plugins\<Plugin>\Source\<Name>`) with `Build.cs`
+(depends on the module under test, `FunctionalTesting` for non-Shipping), module `.h/.cpp`, and adds an `Editor` module entry
+to the `.uproject` / `.uplugin`. Then regenerate the project files (`devops_data\generate_project_files.bat`), editor closed.
+Test data files (images, ini, json) go to `<Module>\Data`, the way `OpenAITestRunner\Data` does. The test category must still
+start with the project name (or run with `-Filter <prefix>`), see step 4.
+
 ## 3. Create the file
 
 ```
 powershell -NoProfile -ExecutionPolicy Bypass -File "<run-tests skill dir>/scripts/run_tests.ps1" -ProjectPath "<project>" -NewSpec <ClassName>Tests -Dir Tests\<Area>
 powershell -NoProfile -ExecutionPolicy Bypass -File "<run-tests skill dir>/scripts/run_tests.ps1" -ProjectPath "<project>" -NewTest <Name> -Dir Tests
 ```
+
+With a test module add `-Module <Name>` (`-Dir` is then relative to the module's `Private`, default `Private` itself):
+`... -NewSpec <ClassName>Tests -Module <Name> [-Dir <Area>]`.
 
 Creates `Source\<Project>\<Dir>\<Name>.spec.cpp` (or `.h/.cpp`) with the project's copyright, formatted by clang-format.
 It refuses to overwrite an existing file. The project needs a `Source\<Project>` module (not Blueprint-only).
