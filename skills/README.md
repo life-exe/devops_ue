@@ -35,6 +35,7 @@ One-time setup: repository Settings > Pages > Build and deployment > Source: Git
 ```
 install_skills.bat                          - asks: [G]lobal or [P]roject, then the agent
 install_skills.bat global [agent]           - %USERPROFILE%\...: available in every folder
+install_skills.bat global all               - install globally for all agents (Claude Code, Codex, OpenCode, Antigravity)
 install_skills.bat project [agent]          - <project>\... (the folder that holds devops_ue): only this project, can be committed
 ```
 

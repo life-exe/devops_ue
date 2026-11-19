@@ -124,6 +124,7 @@ The skills are a thin layer over the same bat scripts and templates: the reposit
 
 ```
 skills\install_skills.bat
+skills\install_skills.bat global all
 ```
 
 Then type `/ue-help` in your agent: it opens an HTML overview of all skills with their scripts and parameters. The same page is published online: **[life-exe.github.io/devops_ue](https://life-exe.github.io/devops_ue/)**. Details: [skills/README.md](skills/README.md).
