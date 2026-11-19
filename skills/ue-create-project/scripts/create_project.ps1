@@ -23,6 +23,9 @@ param(
     # becomes the start map / default game mode, like the "Variants" dropdown of the editor. Empty = the template's own default level.
     # The files of all variants are copied either way, as the editor does.
     [string]$Variant = '',
+    # C++ template: remove the obvious comments of the template sources while copying (strip_comments.ps1: banners, "Constructor",
+    # "// stub", comments that only repeat the declaration name; informative ones stay)
+    [switch]$StripComments,
     [Parameter(Mandatory)][string]$Copyright,
     [string]$CompanyName = '',
     [string]$EngineAssociation = '',
@@ -406,6 +409,11 @@ if ($Type -eq 'Cpp') {
 }
 
 # ---------------------------------------------------------------------------------------------
+if ($Type -eq 'Cpp' -and $StripComments -and -not $isEmpty) {
+    Write-Step 'Removing obvious template comments'
+    & (Join-Path $PSScriptRoot 'strip_comments.ps1') -Path (Join-Path $ProjectRoot 'Source') -Show 0
+}
+
 if ($Type -eq 'Cpp') {
     Write-Step "Creating A${ProjectName}GameMode and copyright headers"
 

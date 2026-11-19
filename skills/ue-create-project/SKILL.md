@@ -73,6 +73,12 @@ Ask in this order. Use `AskUserQuestion` for choices; free text (project name) i
      level becomes the start map and cooked map, its game mode the default one. All variants' code and content are copied
      either way (as the editor does), so the variant can be switched later in Project Settings > Maps & Modes. Empty
      `Variants` (Blueprint templates, other templates) -> do not ask.
+   * **Template comments** (C++ template only): the engine templates carry hundreds of obvious comments
+     ("/** Constructor */", "// stub", "/** Move Input Action */" above `MoveAction`). **Offer to clean them**
+     (recommended: yes). To show what would go, run (read-only, writes nothing):
+     `strip_comments.ps1 -Path "<engine>\Templates\<TP_Name>\Source" -DryRun -Show 15` and quote the count and a few examples.
+     On yes pass `-StripComments` to `create_project.ps1`. Informative comments stay (why, warnings, TODO, links, units,
+     `@tags`, the copyright line). The same script cleans an existing project: `strip_comments.ps1 -Path Source\<Project>`.
 7. **Packaging** - package the game right after creation (`Development`, Win64)? Default: no, it takes long.
 8. **devops_ue** - default: added as a git submodule (`git submodule add <origin url of this devops_ue>`).
    Only ask if the user mentioned they are offline / want a plain copy -> `-DevopsMode Copy`.
@@ -90,7 +96,7 @@ Never add an option whose meaning is "type it yourself" - that is what the built
 powershell -NoProfile -ExecutionPolicy Bypass -File "<skill dir>/scripts/create_project.ps1" `
   -ProjectName "<Name>" (-ProjectDir "<project folder>" | -ParentDir "<parent>") -Type Cpp|Blueprint `
   -EnginePath "<engine path>" -EngineAssociation "<Association from ue_info>" `
-  -Template Empty|<TP_TemplateName> [-Variant <Combat|Shooter|...>] -Copyright "<copyright>" [-CompanyName "<company>"] [-Package]
+  -Template Empty|<TP_TemplateName> [-Variant <Combat|Shooter|...>] [-StripComments] -Copyright "<copyright>" [-CompanyName "<company>"] [-Package]
 ```
 
 * Pass `-DevopsSource "<path>\devops_ue"` if the script can't find devops_ue itself (it looks next to the
