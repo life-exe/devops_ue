@@ -62,5 +62,9 @@ jobs:
         with:
           path: _site
 
+      # Avoid a race where deploy-pages queries the Artifacts API milliseconds after upload finishes.
+      - name: Wait for artifact indexing
+        run: sleep 5
+
       - id: deployment
         uses: actions/deploy-pages@v4
