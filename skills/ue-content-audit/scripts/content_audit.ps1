@@ -10,6 +10,13 @@
 param(
     [string]$ProjectPath = '.',
     [switch]$Deep,
+    # the engine's DataValidation plugin (UnrealEditor-Cmd -run=DataValidation): every enabled validator over /Game assets
+    # (project validators written in C++ / Blueprint run too); errors and warnings go into the report
+    [switch]$Validate,
+    # only assets of this class, e.g. Texture2D or /Script/Engine.StaticMesh (default: all)
+    [string]$ValidateAssetType = '',
+    # exit code 1 when the validation found errors (CI)
+    [switch]$FailOnIssues,
     [int]$Top = 20,
     [int]$TextureLimit = 2048,
     [string]$Report = '',
@@ -51,7 +58,10 @@ function Write-Timing([string]$Result = 'total') {
     Write-Host ('  {0,-10} {1}' -f (Format-Duration $ScriptTimer.Elapsed), $Result) -ForegroundColor Green
 }
 trap { Write-Timing 'total (FAILED)'; break }
-function Add-Warning([string]$Text) { [void]$Warnings.Add($Text); Write-Host "WARNING: $Text" -ForegroundColor Yellow }
+function Add-Warning([string]$Text) {
+    if ($Warnings.Contains($Text)) { return }   # the same warning from two editor runs is shown once
+    [void]$Warnings.Add($Text); Write-Host "WARNING: $Text" -ForegroundColor Yellow
+}
 function Format-Size([double]$Bytes) { if ($Bytes -ge 1GB) { '{0:N2} GB' -f ($Bytes / 1GB) } elseif ($Bytes -ge 1MB) { '{0:N1} MB' -f ($Bytes / 1MB) } else { '{0:N0} KB' -f ($Bytes / 1KB) } }
 function Get-ConfigValue([string]$ConfigBat, [string]$Name) {
     if (-not (Test-Path -LiteralPath $ConfigBat)) { return '' }
@@ -138,25 +148,92 @@ $largest = $packages.Values | Sort-Object Bytes -Descending | Select-Object -Fir
 Show-Table "Largest $Top packages" $largest @('Package', 'Size', 'Map') 'largest' @{ top = $Top }
 
 # ---------------------------------------------------------------------------------------------
-if ($Deep) {
-    Write-Step 'Asset registry (UnrealEditor-Cmd, Python)'
+# engine + editor binaries check shared by -Deep and -Validate; $false (with a warning) when the editor cannot be started
+function Initialize-Editor([string]$What) {
     $assoc = ([regex]::Match([IO.File]::ReadAllText($UProjectPath), '"EngineAssociation"\s*:\s*"([^"]*)"')).Groups[1].Value
-    $EnginePath = Resolve-ProjectEngine $ProjectRoot $assoc $EnginePath
-    $editorCmd = Join-Path $EnginePath 'Engine\Binaries\Win64\UnrealEditor-Cmd.exe'
+    $script:EnginePath = Resolve-ProjectEngine $ProjectRoot $assoc $script:EnginePath
+    $script:editorCmd = Join-Path $script:EnginePath 'Engine\Binaries\Win64\UnrealEditor-Cmd.exe'
     $isCpp = Test-Path -LiteralPath (Join-Path $ProjectRoot 'Source')
     $dll = Get-ChildItem -LiteralPath (Join-Path $ProjectRoot 'Binaries\Win64') -Filter "UnrealEditor-$ProjectName*.dll" -ErrorAction SilentlyContinue | Select-Object -First 1
-    $jsonOut = Join-Path $ProjectRoot 'Saved\ContentAudit\assets.json'
     if ($isCpp -and -not $dll) {
-        Add-Warning "Editor binaries of $ProjectName are not built: build ${ProjectName}Editor first (deep audit skipped)"
+        Add-Warning "Editor binaries of $ProjectName are not built: build ${ProjectName}Editor first ($What skipped)"
+        return $false
     }
+    return $true
+}
+
+# Runs UnrealEditor-Cmd with the log in $LogFile. An engine plugin whose binaries do not match the engine build stops the editor
+# at start-up (seen with Fab): when $Succeeded says the run did not do its job and the log names such a plugin, run again without it.
+function Invoke-EditorRun([string]$EditorArgs, [string]$LogFile, [scriptblock]$Succeeded) {
+    $disable = @()
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+        if (Test-Path -LiteralPath $LogFile) { Remove-Item -LiteralPath $LogFile -Force }
+        $dis = if ($disable) { " -DisablePlugins=$($disable -join ',')" } else { '' }
+        $proc = Start-Process -FilePath $script:editorCmd -ArgumentList "$EditorArgs$dis `"-abslog=$LogFile`"" -NoNewWindow -Wait -PassThru `
+            -RedirectStandardOutput "$LogFile.stdout" -RedirectStandardError "$LogFile.stderr"
+        Remove-Item -LiteralPath "$LogFile.stdout", "$LogFile.stderr" -Force -ErrorAction SilentlyContinue   # the editor's own log is in $LogFile
+        if (& $Succeeded) { break }
+        $text = if (Test-Path -LiteralPath $LogFile) { [IO.File]::ReadAllText($LogFile) } else { '' }
+        $bad = @([regex]::Matches($text, "Plugin '(\w+)' failed to load because module") | ForEach-Object { $_.Groups[1].Value } | Where-Object { $_ -notin $disable } | Select-Object -Unique)
+        if (-not $bad) { break }
+        $disable += $bad
+        Add-Warning "Plugin(s) $($bad -join ', ') failed to load (binaries of another engine build?): ran without them. Fix: Epic Games Launcher > Verify the engine."
+    }
+    return $proc
+}
+
+if ($Validate) {
+    Write-Step 'Data validation (UnrealEditor-Cmd -run=DataValidation)'
+    if (Initialize-Editor 'data validation') {
+        $outDirV = Join-Path $ProjectRoot 'Saved\ContentAudit'
+        New-Item -ItemType Directory -Force -Path $outDirV | Out-Null
+        $vlog = Join-Path $outDirV 'validation.log'
+        $baseArgs = "`"$UProjectPath`" -run=DataValidation" + $(if ($ValidateAssetType) { " -AssetType=$ValidateAssetType" }) + ' -unattended -nopause -nosplash -nullrhi -nosound -nop4'
+        $vp = Invoke-EditorRun $baseArgs $vlog { (Test-Path -LiteralPath $vlog) -and ([IO.File]::ReadAllText($vlog) -match 'Starting to validate') }
+        $vtext = if (Test-Path -LiteralPath $vlog) { [IO.File]::ReadAllText($vlog) } else { '' }
+        $started = [regex]::Match($vtext, 'Starting to validate (\d+) assets')
+        if (-not $started.Success) {
+            Add-Warning "Data validation did not run (exit $($vp.ExitCode)), see $vlog"
+        }
+        else {
+            $assetCount = [int]$started.Groups[1].Value
+            $issues = New-Object System.Collections.ArrayList
+            $seen = @{}
+            foreach ($line in ($vtext -split "`r?`n")) {
+                if ($line -notmatch '^(?:\[[^\]]*\]\[[^\]]*\])?(AssetCheck|LogContentValidation|LogDataValidation|LoadErrors): (Error|Warning): (.*)$') { continue }
+                $sev = $Matches[2]; $msg = $Matches[3].Trim()
+                $asset = ''
+                if ($msg -match "^\S*'(/[^']+)'\s*(.*)$") { $asset = ($Matches[1] -replace '\.[^./]+$', ''); $msg = $Matches[2] }
+                elseif ($msg -match "^Unable to load package '(/[^']+)'\.\s*(.*)$") { $asset = $Matches[1]; $msg = $Matches[2] }   # the reason behind "Failed to load object"
+                $k = "$sev|$asset|$msg"
+                if ($seen.ContainsKey($k)) { continue }
+                $seen[$k] = $true
+                [void]$issues.Add([pscustomobject]@{ Severity = $sev; Asset = $asset; Message = $msg })
+            }
+            $errCount = @($issues | Where-Object Severity -eq 'Error').Count
+            $warnCount = $issues.Count - $errCount
+            $validators = @([regex]::Matches($vtext, '(?m)^(?:\[[^\]]*\]\[[^\]]*\])?LogContentValidation:\s+/Script/(\S+)\s*:\s*(\d+)\s*$') |
+                ForEach-Object { [pscustomobject]@{ Validator = $_.Groups[1].Value; Assets = [int]$_.Groups[2].Value } })
+            $sorted = @($issues | Sort-Object @{ e = { if ($_.Severity -eq 'Error') { 0 } else { 1 } } }, Asset)
+            Show-Table "Data validation: $assetCount assets, $errCount errors, $warnCount warnings" $sorted @('Severity', 'Asset', 'Message') 'validation' @{ assets = $assetCount; errors = $errCount; warnings = $warnCount }
+            Show-Table 'Validators that ran (assets checked)' @($validators | Sort-Object Assets -Descending) @('Validator', 'Assets') 'validators'
+            Write-Host "  log: $vlog"
+            $script:validationErrors = $errCount
+        }
+    }
+}
+
+if ($Deep) {
+    Write-Step 'Asset registry (UnrealEditor-Cmd, Python)'
+    $jsonOut = Join-Path $ProjectRoot 'Saved\ContentAudit\assets.json'
+    if (-not (Initialize-Editor 'deep audit')) { }
     else {
         New-Item -ItemType Directory -Force -Path (Split-Path -Parent $jsonOut) | Out-Null
         if (Test-Path -LiteralPath $jsonOut) { Remove-Item -LiteralPath $jsonOut -Force }
         $env:UE_AUDIT_OUT = $jsonOut
         $py = Join-Path $PSScriptRoot 'content_audit.py'
         $log = Join-Path $ProjectRoot 'Saved\ContentAudit\editor.log'
-        $p = Start-Process -FilePath $editorCmd -ArgumentList "`"$UProjectPath`" -run=pythonscript -script=`"$py`" -EnablePlugins=PythonScriptPlugin -unattended -nopause -nosplash -nullrhi -nosound -nop4" `
-            -NoNewWindow -Wait -PassThru -RedirectStandardOutput $log -RedirectStandardError "$log.err"
+        $p = Invoke-EditorRun "`"$UProjectPath`" -run=pythonscript -script=`"$py`" -EnablePlugins=PythonScriptPlugin -unattended -nopause -nosplash -nullrhi -nosound -nop4" $log { Test-Path -LiteralPath $jsonOut }
         Remove-Item Env:\UE_AUDIT_OUT -ErrorAction SilentlyContinue
         if (-not (Test-Path -LiteralPath $jsonOut)) {
             Add-Warning "Editor run gave no result (exit $($p.ExitCode)), see $log"
@@ -235,3 +312,4 @@ if ($Warnings.Count -gt 0) {
     foreach ($w in $Warnings) { Write-Host "  - $w" -ForegroundColor Yellow }
 }
 Write-Timing
+if ($FailOnIssues -and $script:validationErrors -gt 0) { exit 1 }

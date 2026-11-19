@@ -66,6 +66,8 @@
       th.mapcol, td.mapcol { padding-left: 24px; white-space: nowrap; color: var(--muted); }
       tbody tr:hover td { background: var(--hover); }
       td.pkg { color: var(--accent); }
+      th.pkg, td.pkg { min-width: 31em; }
+      th.sev, td.sev { white-space: nowrap; padding-right: 24px; }
       .note { color: var(--muted); font-size: 14px; margin: 10px 0 0; }
       .none { color: var(--muted); padding: 12px 0; }
       footer { color: var(--muted); font-size: 13px; padding: 40px 0 48px; }
@@ -105,9 +107,12 @@
             folders: () => "Размер по папкам верхнего уровня", types: () => "Размер по типам файлов", largest: (m) => `Крупнейшие пакеты (${m.top})`,
             classes: () => "Размер по классам ассетов (топ 25)", unref: (m) => `Кандидаты без ссылок: ${m.count} ассетов, ${m.size} (топ ${m.top})`,
             textures: (m) => `Текстуры больше ${m.limit} px (топ ${m.top})`, redirectors: (m) => `Редиректоры (${m.count})`,
+            validation: (m) => `Проверка данных (DataValidation): ${m.assets} ассетов, ошибок ${m.errors}, предупреждений ${m.warnings}`,
+            validators: () => "Какие валидаторы отработали (проверено ассетов)",
           },
-          c: { Folder: "Папка", Files: "Файлов", Size: "Размер", Share: "Доля", Type: "Тип", Package: "Пакет", Map: "Тип", Class: "Класс", Assets: "Ассетов", Dimensions: "Размеры" },
-          v: { map: "карта" },
+          validNote: "Свои правила проверок: класс от UEditorValidatorBase (C++ или Blueprint) в проекте подхватывается автоматически, настройки: Project Settings > Editor > Data Validation.",
+          c: { Folder: "Папка", Files: "Файлов", Size: "Размер", Share: "Доля", Type: "Тип", Package: "Пакет", Map: "Тип", Class: "Класс", Assets: "Ассетов", Dimensions: "Размеры", Severity: "Важность", Asset: "Ассет", Message: "Сообщение", Validator: "Валидатор" },
+          v: { map: "карта", Error: "Ошибка", Warning: "Предупреждение" },
         },
         en: {
           ttl: "Content audit", files: "files", search: "Filter rows   ( / )", theme: "Theme", none: "none", nothing: "Nothing found.", foot: "Generated",
@@ -118,7 +123,10 @@
             folders: () => "Size by top folder", types: () => "Size by file type", largest: (m) => `Largest ${m.top} packages`,
             classes: () => "Size by asset class (top 25)", unref: (m) => `Unreferenced candidates: ${m.count} assets, ${m.size} (top ${m.top})`,
             textures: (m) => `Textures larger than ${m.limit} px (top ${m.top})`, redirectors: (m) => `Redirectors (${m.count})`,
+            validation: (m) => `Data validation: ${m.assets} assets, ${m.errors} errors, ${m.warnings} warnings`,
+            validators: () => "Validators that ran (assets checked)",
           },
+          validNote: "Your own rules: a class derived from UEditorValidatorBase (C++ or Blueprint) in the project is picked up automatically; settings: Project Settings > Editor > Data Validation.",
           c: { Map: "Type" },
           v: {},
         },
@@ -146,10 +154,11 @@
         let note = "";
         if (s.key === "unref") note = `<p class="note">${esc(t.unrefNote)}</p>`;
         if (s.key === "redirectors" && s.rows.length) note = `<p class="note">${esc(t.redirNote)}</p>`;
-        if (!s.rows.length) return `<section><h2>${esc(head)}</h2><p class="none">${t.none}</p></section>`;
-        const cls = (c) => (NUM.has(c) ? "num" : c === "Package" ? "pkg mono" : c === "Map" ? "mapcol" : "");
+        if (s.key === "validation") note = `<p class="note">${esc(t.validNote)}</p>`;
+        if (!s.rows.length) return `<section><h2>${esc(head)}</h2><p class="none">${t.none}</p>${note}</section>`;
+        const cls = (c) => (NUM.has(c) ? "num" : c === "Package" || c === "Asset" ? "pkg mono" : c === "Map" ? "mapcol" : c === "Severity" ? "sev" : "");
         const th = s.columns.map((c) => `<th class="${cls(c)}">${esc(col(c))}</th>`).join("");
-        const val = (c, v) => (c === "Map" && t.v[v] ? t.v[v] : v);
+        const val = (c, v) => ((c === "Map" || c === "Severity") && t.v[v] ? t.v[v] : v);
         const tr = rows.map((r) => `<tr>${s.columns.map((c) => `<td class="${cls(c)}">${esc(val(c, r[c]))}</td>`).join("")}</tr>`).join("");
         return `<section><h2>${esc(head)}</h2><table><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table>${note}</section>`;
       }
@@ -166,7 +175,9 @@
         const warns = (D.warnings || []).map((w) => `<div class="warn">${t.warn}: ${esc(w)}</div>`);
         if (!D.deep) warns.push(`<div class="warn">${esc(t.deepOff)}</div>`);
         $("warns").innerHTML = warns.join("");
-        const html = D.sections.map(sectionHtml).join("");
+        // the validation verdict goes first, then the size tables
+        const order = (s) => (s.key === "validation" ? 0 : s.key === "validators" ? 1 : 2);
+        const html = D.sections.map((s, i) => ({ s, i })).sort((a, b) => order(a.s) - order(b.s) || a.i - b.i).map((x) => sectionHtml(x.s)).join("");
         $("app").innerHTML = html || `<p class="none">${t.nothing}</p>`;
       }
 
