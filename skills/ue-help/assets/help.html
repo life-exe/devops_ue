@@ -14,6 +14,7 @@
         --hover: #f4f4f4;
         --code: #f0f0f0;
         --accent: #0a58ca;
+        --brand: #f04104;
         color-scheme: light;
       }
       @media (prefers-color-scheme: dark) {
@@ -45,7 +46,11 @@
       body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
       code, pre, .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
       .wrap { max-width: 1240px; margin: 0 auto; padding: 0 32px; }
-      header { padding: 40px 0 16px; }
+      header { padding: 0 0 16px; }
+      .topbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 20px 0; border-bottom: 1px solid var(--line); margin-bottom: 28px; }
+      .brand { display: inline-flex; align-items: center; gap: 6px; font-size: 20px; font-weight: 800; letter-spacing: -0.025em; color: var(--text); text-decoration: none; }
+      .brand:hover { opacity: 0.75; }
+      .brand-dot { display: inline-block; width: 8px; height: 8px; background: var(--brand); }
       .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: baseline; justify-content: space-between; }
       h1 { margin: 0; font-size: 26px; font-weight: 600; }
       .sub { color: var(--muted); margin: 6px 0 0; font-size: 15px; }
@@ -85,21 +90,24 @@
       table.params td:first-child { color: var(--accent); }
       .req { color: #c0392b; }
       .empty { color: var(--muted); padding: 32px 0; }
-      footer { color: var(--muted); font-size: 13px; padding-bottom: 48px; }
-      footer a { color: var(--accent); text-decoration: none; }
-      footer a:hover { text-decoration: underline; }
+      footer { color: var(--muted); font-size: 13px; padding: 16px 0 48px; }
+      footer .foot-meta { margin-bottom: 24px; }
+      footer .foot-meta a { color: var(--accent); text-decoration: none; }
+      footer .foot-meta a:hover { text-decoration: underline; }
+      .foot-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 24px; padding-top: 28px; border-top: 1px solid var(--line); }
+      .foot-brand p { margin: 6px 0 0; font-size: 14px; color: var(--muted); }
+      .foot-links { display: flex; flex-wrap: wrap; gap: 20px; }
+      .foot-links a { font-size: 14px; font-weight: 600; color: var(--text); text-decoration: none; }
+      .foot-links a:hover { text-decoration: underline; text-underline-offset: 4px; }
       @media (max-width: 640px) { col.c-nm { width: 120px; } }
-      @media print { .tools, #q { display: none; } tr.detail[hidden] { display: table-row; } }
+      @media print { .tools, #q, .foot-links { display: none; } tr.detail[hidden] { display: table-row; } }
     </style>
   </head>
   <body>
     <div class="wrap">
       <header>
-        <div class="row">
-          <div>
-            <h1>devops_ue skills</h1>
-            <p class="sub" id="sub"></p>
-          </div>
+        <div class="topbar">
+          <a class="brand" href="https://www.life-exe.com" target="_blank" rel="noopener noreferrer">LIFE.EXE<span class="brand-dot" aria-hidden="true"></span></a>
           <div class="tools">
             <span id="langs" role="group" aria-label="Language">
               <button data-lang="ru">RU</button><button data-lang="en">EN</button>
@@ -107,10 +115,35 @@
             <button id="theme" type="button"></button>
           </div>
         </div>
+        <div class="row">
+          <div>
+            <h1>devops_ue skills</h1>
+            <p class="sub" id="sub"></p>
+          </div>
+        </div>
         <input id="q" type="search" autocomplete="off" />
       </header>
       <main id="app"></main>
-      <footer id="foot"></footer>
+      <footer>
+        <div class="foot-meta" id="foot"></div>
+        <div class="foot-bar">
+          <div class="foot-brand">
+            <a class="brand" href="https://www.life-exe.com" target="_blank" rel="noopener noreferrer">LIFE.EXE<span class="brand-dot" aria-hidden="true"></span></a>
+            <p id="foot-tag"></p>
+            <p id="foot-copy"></p>
+          </div>
+          <nav class="foot-links" aria-label="LIFE.EXE links">
+            <a href="https://www.youtube.com/@LifeEXECode" target="_blank" rel="noopener noreferrer">YouTube</a>
+            <a href="https://www.patreon.com/lifeexecode" target="_blank" rel="noopener noreferrer">Patreon</a>
+            <a href="https://boosty.to/life-exe" target="_blank" rel="noopener noreferrer">Boosty</a>
+            <a href="https://t.me/LifeExeCode" target="_blank" rel="noopener noreferrer">Telegram</a>
+            <a href="https://github.com/life-exe" target="_blank" rel="noopener noreferrer">GitHub</a>
+            <a href="https://x.com/LifeExeCode" target="_blank" rel="noopener noreferrer">X</a>
+            <a href="https://life-exe.itch.io/" target="_blank" rel="noopener noreferrer">itch</a>
+            <a href="https://linktr.ee/lifeexe" target="_blank" rel="noopener noreferrer">Linktree</a>
+          </nav>
+        </div>
+      </footer>
     </div>
     <script id="data" type="application/json">__SKILLS_JSON__</script>
     <script>
@@ -127,10 +160,12 @@
       const UI = {
         ru: { sub: "скиллов", search: "Поиск по названию, описанию, параметрам   ( / )", skill: "Скилл", desc: "Описание", theme: "Тема",
           noScripts: "Скриптов нет: скилл — сценарий для агента.", param: "Параметр", type: "Тип", def: "По умолчанию", installed: "Установлен",
-          notInstalled: "не установлен", none: "Ничего не найдено.", foot: "Сгенерировано", hint: "Клик по строке — параметры скриптов, клик по названию — копировать" },
+          notInstalled: "не установлен", none: "Ничего не найдено.", foot: "Сгенерировано", hint: "Клик по строке — параметры скриптов, клик по названию — копировать",
+          tagline: "Все права защищены, все коммиты запушены" },
         en: { sub: "skills", search: "Search by name, description, parameters   ( / )", skill: "Skill", desc: "Description", theme: "Theme",
           noScripts: "No scripts: the skill is a workflow for the agent.", param: "Parameter", type: "Type", def: "Default", installed: "Installed",
-          notInstalled: "not installed", none: "Nothing found.", foot: "Generated", hint: "Click a row for script parameters, click a name to copy" },
+          notInstalled: "not installed", none: "Nothing found.", foot: "Generated", hint: "Click a row for script parameters, click a name to copy",
+          tagline: "All rights reserved, all commits pushed" },
       };
       const state = { lang: D.lang === "en" ? "en" : "ru", q: "", open: new Set() };
       const $ = (id) => document.getElementById(id);
@@ -187,6 +222,8 @@
         $("theme").textContent = t.theme;
         const repo = D.public ? ` · <a href="https://github.com/life-exe/devops_ue">github.com/life-exe/devops_ue</a>` : "";
         $("foot").innerHTML = `${esc(t.foot)}: ${esc(D.generated)}${D.skillsDir ? " · " + esc(D.skillsDir) : ""}${repo}`;
+        $("foot-tag").textContent = t.tagline;
+        $("foot-copy").textContent = `© ${new Date().getFullYear()} LIFE.EXE`;
         document.querySelectorAll("#langs button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.lang === state.lang)));
         let body = "";
         for (const c of CATS) {

@@ -13,6 +13,7 @@
         --line: #d8d8d8;
         --hover: #f4f4f4;
         --accent: #0a58ca;
+        --brand: #f04104;
         --warn: #b35900;
         color-scheme: light;
       }
@@ -44,7 +45,11 @@
       body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
       code, .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
       .wrap { max-width: 1240px; margin: 0 auto; padding: 0 32px; }
-      header { padding: 40px 0 16px; }
+      header { padding: 0 0 16px; }
+      .topbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 20px 0; border-bottom: 1px solid var(--line); margin-bottom: 28px; }
+      .brand { display: inline-flex; align-items: center; gap: 6px; font-size: 20px; font-weight: 800; letter-spacing: -0.025em; color: var(--text); text-decoration: none; }
+      .brand:hover { opacity: 0.75; }
+      .brand-dot { display: inline-block; width: 8px; height: 8px; background: var(--brand); }
       .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: baseline; justify-content: space-between; }
       h1 { margin: 0; font-size: 26px; font-weight: 600; }
       .sub { color: var(--muted); margin: 6px 0 0; font-size: 15px; }
@@ -71,27 +76,55 @@
       .note { color: var(--muted); font-size: 14px; margin: 10px 0 0; }
       .none { color: var(--muted); padding: 12px 0; }
       footer { color: var(--muted); font-size: 13px; padding: 40px 0 48px; }
-      @media print { .tools, #q { display: none; } }
+      footer .foot-meta { margin-bottom: 24px; }
+      .foot-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 24px; padding-top: 28px; border-top: 1px solid var(--line); }
+      .foot-brand p { margin: 6px 0 0; font-size: 14px; color: var(--muted); }
+      .foot-links { display: flex; flex-wrap: wrap; gap: 20px; }
+      .foot-links a { font-size: 14px; font-weight: 600; color: var(--text); text-decoration: none; }
+      .foot-links a:hover { text-decoration: underline; text-underline-offset: 4px; }
+      @media print { .tools, #q, .foot-links { display: none; } }
     </style>
   </head>
   <body>
     <div class="wrap">
       <header>
+        <div class="topbar">
+          <a class="brand" href="https://www.life-exe.com" target="_blank" rel="noopener noreferrer">LIFE.EXE<span class="brand-dot" aria-hidden="true"></span></a>
+          <div class="tools">
+            <span id="langs" role="group" aria-label="Language"><button data-lang="ru">RU</button><button data-lang="en">EN</button></span>
+            <button id="theme" type="button"></button>
+          </div>
+        </div>
         <div class="row">
           <div>
             <h1 id="ttl"></h1>
             <p class="sub" id="sub"></p>
-          </div>
-          <div class="tools">
-            <span id="langs" role="group" aria-label="Language"><button data-lang="ru">RU</button><button data-lang="en">EN</button></span>
-            <button id="theme" type="button"></button>
           </div>
         </div>
         <input id="q" type="search" autocomplete="off" />
         <div id="warns"></div>
       </header>
       <main id="app"></main>
-      <footer id="foot"></footer>
+      <footer>
+        <div class="foot-meta" id="foot"></div>
+        <div class="foot-bar">
+          <div class="foot-brand">
+            <a class="brand" href="https://www.life-exe.com" target="_blank" rel="noopener noreferrer">LIFE.EXE<span class="brand-dot" aria-hidden="true"></span></a>
+            <p id="foot-tag"></p>
+            <p id="foot-copy"></p>
+          </div>
+          <nav class="foot-links" aria-label="LIFE.EXE links">
+            <a href="https://www.youtube.com/@LifeEXECode" target="_blank" rel="noopener noreferrer">YouTube</a>
+            <a href="https://www.patreon.com/lifeexecode" target="_blank" rel="noopener noreferrer">Patreon</a>
+            <a href="https://boosty.to/life-exe" target="_blank" rel="noopener noreferrer">Boosty</a>
+            <a href="https://t.me/LifeExeCode" target="_blank" rel="noopener noreferrer">Telegram</a>
+            <a href="https://github.com/life-exe" target="_blank" rel="noopener noreferrer">GitHub</a>
+            <a href="https://x.com/LifeExeCode" target="_blank" rel="noopener noreferrer">X</a>
+            <a href="https://life-exe.itch.io/" target="_blank" rel="noopener noreferrer">itch</a>
+            <a href="https://linktr.ee/lifeexe" target="_blank" rel="noopener noreferrer">Linktree</a>
+          </nav>
+        </div>
+      </footer>
     </div>
     <script id="data" type="application/json">__AUDIT_JSON__</script>
     <script>
@@ -100,6 +133,7 @@
       const L = {
         ru: {
           ttl: "Аудит Content", files: "файлов", search: "Фильтр по строкам   ( / )", theme: "Тема", none: "нет", nothing: "Ничего не найдено.", foot: "Сгенерировано",
+          tagline: "Все права защищены, все коммиты запушены",
           warn: "Предупреждение", deepOff: "Быстрый аудит без редактора. Для классов ассетов, неиспользуемых ассетов, текстур и редиректоров запустите с -Deep.",
           unrefNote: "Без ссылок = ни один пакет на ассет не ссылается и он не упомянут в Config/*.ini. Ассеты, загружаемые по строковому пути из кода или таблиц данных, тоже выглядят неиспользуемыми: проверьте перед удалением, удаляйте в редакторе.",
           redirNote: "Исправить в редакторе: Content Browser > правый клик по папке > Fix Up Redirectors",
@@ -116,6 +150,7 @@
         },
         en: {
           ttl: "Content audit", files: "files", search: "Filter rows   ( / )", theme: "Theme", none: "none", nothing: "Nothing found.", foot: "Generated",
+          tagline: "All rights reserved, all commits pushed",
           warn: "Warning", deepOff: "Quick audit without the editor. Run with -Deep for asset classes, unreferenced assets, textures and redirectors.",
           unrefNote: "Unreferenced = no package references the asset and it is not named in Config/*.ini. Assets loaded only by path strings in code or data tables also look unreferenced: check before deleting, delete inside the editor.",
           redirNote: "Fix in the editor: Content Browser > right-click the folder > Fix Up Redirectors",
@@ -171,6 +206,8 @@
         $("q").placeholder = t.search;
         $("theme").textContent = t.theme;
         $("foot").textContent = `${t.foot}: ${D.date} · ${D.contentDir}`;
+        $("foot-tag").textContent = t.tagline;
+        $("foot-copy").textContent = `© ${new Date().getFullYear()} LIFE.EXE`;
         document.querySelectorAll("#langs button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.lang === state.lang)));
         const warns = (D.warnings || []).map((w) => `<div class="warn">${t.warn}: ${esc(w)}</div>`);
         if (!D.deep) warns.push(`<div class="warn">${esc(t.deepOff)}</div>`);
