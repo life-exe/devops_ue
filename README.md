@@ -114,6 +114,8 @@ PROJECT_NAME           = "My Project"
 
 The **skills** folder contains skills for AI coding agents ([Claude Code](https://docs.claude.com/en/docs/claude-code), Codex, OpenCode, Antigravity). A skill is a directory with a `SKILL.md` (instructions for the agent) and the scripts it runs. Describe the task in plain words ("check the environment", "create a new C++ project", "run the tests with coverage") or call a skill with `/ue-<name>`: the agent picks the skill, runs the scripts, reads the log and reports the result.
 
+![devops_ue skills](assets/skills.png)
+
 * **Environment:** `ue-check-env`, `ue-install-env`
 * **Project:** `ue-create-project`, `ue-upgrade-engine`, `ue-clean`, `ue-content-audit`
 * **Code:** `ue-format`, `ue-run-tests`, `ue-add-test`, `ue-docs`, `ue-plugin-create`, `ue-plugin-package`
