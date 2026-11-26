@@ -2,6 +2,8 @@
 
 [Claude Code](https://docs.claude.com/en/docs/claude-code) skills for Unreal Engine projects.
 
+📺 **How to use the skills: watch the video [youtu.be/vwrg9hiz7TY](https://youtu.be/vwrg9hiz7TY)**
+
 | Skill | Description |
 |-------|-------------|
 | `ue-check-env` | Checks the machine: UE, Visual Studio C++, Git/LFS, Python, Playwright, emsdk, Node.js, Vercel CLI, GitHub CLI, butler, long paths, disk space |
